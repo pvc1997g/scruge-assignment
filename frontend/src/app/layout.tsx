@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Schibsted_Grotesk } from "next/font/google";
+// Font files ship with the app (no Google Fonts request at build time, so builds work offline / behind firewalls).
+import "@fontsource-variable/schibsted-grotesk";
 import "./globals.css";
-
-const schibsted = Schibsted_Grotesk({ variable: "--font-schibsted", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 export const metadata: Metadata = {
   title: "Scruge",
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${schibsted.variable} antialiased`}>
+      <body className="antialiased">
         <header className="border-b border-rule">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
             <Link href="/" className="flex items-center gap-2 font-extrabold tracking-tight text-lg">
