@@ -1,0 +1,21 @@
+# One Amazon link per line. Lines starting with # are ignored.
+# Smartphones
+https://www.amazon.in/dp/B0CS5ZZMN8
+https://www.amazon.in/dp/B0DGJH8RYG
+https://www.amazon.in/dp/B0DQVK5X4K
+https://www.amazon.in/dp/B0GVYGLNH7
+# no breadcrumbs, no number in the model name
+https://www.amazon.in/dp/B0HJ9SDY16
+# TVs
+https://www.amazon.in/dp/B0GTZ9TSDJ
+https://www.amazon.in/dp/B0GXV5313B
+https://www.amazon.in/dp/B0F7X5FC43
+https://www.amazon.in/dp/B0GYRRLP87
+# Sneakers
+https://www.amazon.in/dp/B0983NTYZ5
+https://www.amazon.in/dp/B0BSLKJPXV
+https://www.amazon.in/dp/B0F2FFQPYW
+# T-shirts / polos / jerseys
+https://www.amazon.in/dp/B0C4NZ57BR
+https://www.amazon.in/dp/B0DS64BDRK
+https://www.amazon.in/dp/B0G58TNQS2
