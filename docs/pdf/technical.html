@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scruge: How a link becomes an answer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500&display=block" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fbfcfa;
+    --tint: #eef2ef;
+    --ink: #12261f;
+    --body: #24372f;
+    --muted: #5a6a64;
+    --rule: #d3dad5;
+    --rule-strong: #a9b6af;
+    --marigold: #e8a33d;
+    --marigold-soft: #fbedd6;
+    --stock: #1e6b52;
+    --stock-soft: #e1efe8;
+    --sold: #9a5d0c;
+    --brick: #a8321f;
+    --brick-soft: #f6e2dd;
+  }
+  @page {
+    size: A4;
+    margin: 16mm 17mm 17mm 17mm;
+    @bottom-left { content: "Scruge: how a link becomes an answer"; font: 400 8pt "Schibsted Grotesk", sans-serif; color: #5a6a64; }
+    @bottom-right { content: counter(page); font: 600 8pt "Schibsted Grotesk", sans-serif; color: #12261f; }
+  }
+  @page cover { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font-family: "Schibsted Grotesk", sans-serif; color: var(--body); font-size: 9.6pt; line-height: 1.5; background: white; }
+  h1, h2, h3, h4 { color: var(--ink); margin: 0; letter-spacing: -0.015em; }
+  h2 { font-size: 21pt; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 4mm; }
+  h3 { font-size: 12.5pt; font-weight: 700; margin: 6mm 0 2mm; }
+  h4 { font-size: 10pt; font-weight: 700; margin: 4mm 0 1mm; }
+  p { margin: 0 0 3mm; max-width: 158mm; }
+  strong { color: var(--ink); font-weight: 650; }
+  code, .mono { font-family: "JetBrains Mono", monospace; font-size: 8.3pt; }
+  p code, li code, td code { background: var(--tint); padding: 0.2mm 1.2mm; border-radius: 1mm; color: var(--ink); }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; max-width: 158mm; }
+  li { margin: 0.8mm 0; }
+  ul li::marker { color: var(--marigold); }
+  a { color: inherit; }
+
+  section { break-before: page; }
+  .keep { break-inside: avoid; }
+  .lede { font-size: 12pt; line-height: 1.5; color: var(--ink); max-width: 150mm; }
+  .section-no { font-weight: 800; color: var(--marigold); font-size: 10pt; margin-bottom: 1.5mm; letter-spacing: 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: 8.5pt; }
+
+  /* cover */
+  .cover { page: cover; height: 297mm; position: relative; background: var(--ink); color: #e9efe9; padding: 26mm 22mm; overflow: hidden; }
+  .cover .mark { display: flex; align-items: center; gap: 3mm; font-weight: 800; font-size: 13pt; color: white; letter-spacing: -0.02em; }
+  .cover .mark i { width: 7mm; height: 7mm; border-radius: 1.4mm; background: #1f3d33; display: grid; place-items: center; }
+  .cover .mark i::after { content: ""; width: 2.8mm; height: 2.8mm; border-radius: 50%; background: var(--marigold); }
+  .cover h1 { color: white; font-size: 44pt; line-height: 0.98; font-weight: 800; letter-spacing: -0.045em; margin-top: 52mm; max-width: 160mm; }
+  .cover .sub { margin-top: 8mm; font-size: 13pt; line-height: 1.5; color: #b9c8c0; max-width: 130mm; }
+  .cover .url { margin-top: 18mm; font-family: "JetBrains Mono", monospace; font-size: 9.5pt; color: #e9efe9; background: #1b352c; border: 1px solid #2f5246; border-radius: 2mm; padding: 4mm 5mm; display: inline-block; }
+  .cover .url b { color: var(--marigold); font-weight: 500; }
+  .cover .meta { position: absolute; left: 22mm; right: 22mm; bottom: 22mm; display: flex; justify-content: space-between; font-size: 9pt; color: #9fb3a9; border-top: 1px solid #2f5246; padding-top: 5mm; }
+  .cover svg.deco { position: absolute; right: -10mm; top: 120mm; opacity: 0.9; }
+
+  /* blocks */
+  .callout { background: var(--tint); border-left: 1.2mm solid var(--stock); padding: 3.5mm 5mm; border-radius: 0 1.5mm 1.5mm 0; margin: 4mm 0; max-width: 165mm; }
+  .callout.warm { border-left-color: var(--marigold); background: var(--marigold-soft); }
+  .callout p:last-child { margin-bottom: 0; }
+  pre { font-family: "JetBrains Mono", monospace; font-size: 7.8pt; line-height: 1.5; background: #102119; color: #d6e4dc; padding: 4mm 5mm; border-radius: 2mm; margin: 3mm 0 4mm; white-space: pre-wrap; break-inside: avoid; }
+  pre .k { color: #f0b85c; } pre .s { color: #a6d9b8; } pre .c { color: #7f978b; } pre .key { color: #9cc7ff; }
+
+  table { border-collapse: collapse; width: 100%; margin: 3mm 0 5mm; font-size: 8.8pt; break-inside: auto; }
+  tr { break-inside: avoid; }
+  th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--rule-strong); padding: 1.8mm 3mm 1.8mm 0; vertical-align: bottom; }
+  td { border-bottom: 1px solid var(--rule); padding: 1.6mm 3mm 1.6mm 0; vertical-align: top; }
+  td:first-child { color: var(--ink); font-weight: 600; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+  .card { border: 1px solid var(--rule); border-radius: 2mm; padding: 4mm; break-inside: avoid; background: white; }
+  .card h4 { margin-top: 0; }
+
+  .step { display: grid; grid-template-columns: 11mm 1fr; gap: 4mm; margin: 0 0 5mm; break-inside: avoid; }
+  .step .n { width: 9mm; height: 9mm; border-radius: 50%; background: var(--ink); color: white; font-weight: 700; display: grid; place-items: center; font-size: 10pt; }
+  .step h3 { margin-top: 1.2mm; }
+
+  .pill { display: inline-flex; align-items: center; gap: 1.5mm; font-weight: 600; font-size: 8.5pt; }
+  .dot { width: 2.6mm; height: 2.6mm; border-radius: 50%; display: inline-block; }
+  .d-in { background: var(--stock); } .d-out { border: 0.5mm solid var(--sold); background: linear-gradient(90deg, var(--sold) 50%, transparent 50%); }
+  .d-nl { border: 0.5mm solid var(--rule-strong); } .d-err { background: var(--brick); transform: rotate(45deg); border-radius: 0; width: 2.2mm; height: 2.2mm; }
+  .t-in { color: var(--stock); } .t-out { color: var(--sold); } .t-nl { color: var(--muted); } .t-err { color: var(--brick); }
+
+  figure { margin: 4mm 0 6mm; break-inside: avoid; }
+  figcaption { font-size: 8.5pt; color: var(--muted); margin-top: 2mm; max-width: 160mm; }
+  svg text { font-family: "Schibsted Grotesk", sans-serif; }
+
+  .toc { margin-top: 6mm; border-top: 1px solid var(--rule-strong); }
+  .toc div { display: grid; grid-template-columns: 10mm 1fr; padding: 2.4mm 0; border-bottom: 1px solid var(--rule); font-size: 10.5pt; }
+  .toc span { color: var(--marigold); font-weight: 800; }
+  .toc b { color: var(--ink); font-weight: 600; }
+  .toc em { font-style: normal; color: var(--muted); font-size: 9pt; display: block; }
+
+  .bignum { font-size: 26pt; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; line-height: 1; }
+  .bignum + div { font-size: 8.5pt; color: var(--muted); margin-top: 1.5mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ COVER -->
+<div class="cover">
+  <div class="mark"><i></i>Scruge</div>
+  <h1>How a link becomes an answer</h1>
+  <p class="sub">A technical walkthrough of what happens between pasting an Amazon product link and seeing whether Flipkart, Croma or Myntra sell the exact same thing.</p>
+  <div class="url">POST /api/compare &nbsp;{ "url": "<b>https://www.amazon.in/dp/B0GVYGLNH7</b>" }</div>
+  <svg class="deco" width="230" height="330" viewBox="0 0 230 330" aria-hidden="true">
+    <g fill="none" stroke="#2f5246" stroke-width="1.2">
+      <rect x="20" y="20" width="120" height="70" rx="8"/>
+      <rect x="90" y="130" width="120" height="70" rx="8"/>
+      <rect x="20" y="240" width="120" height="70" rx="8"/>
+      <path d="M80 90 V110 H150 V130"/><path d="M150 200 V220 H80 V240"/>
+    </g>
+    <circle cx="150" cy="165" r="9" fill="#e8a33d"/>
+    <circle cx="80" cy="55" r="5" fill="#3e6b5b"/><circle cx="80" cy="275" r="5" fill="#3e6b5b"/>
+  </svg>
+  <div class="meta"><span>Founding Backend Engineer assignment</span><span>November 2026</span></div>
+</div>
+
+<!-- ============================================================ OVERVIEW -->
+<section style="break-before: auto;">
+  <div class="section-no">Overview</div>
+  <h2>One link in, a verdict per store out</h2>
+  <p class="lede">You paste an Amazon.in product link. About four to fifteen seconds later you see, for each relevant store, one of three answers: the same product is <strong>in stock</strong>, it is <strong>out of stock</strong>, or it is <strong>not listed</strong>. A fourth state, <strong>couldn't check</strong>, exists so that a blocked or failed request is never reported as "not listed".</p>
+
+  <table>
+    <tr><th style="width:30%">Category</th><th style="width:30%">Stores searched</th><th>Must match, besides brand and model</th></tr>
+    <tr><td>Smartphones</td><td>Flipkart, Croma</td><td>RAM and storage</td></tr>
+    <tr><td>Televisions</td><td>Flipkart, Croma</td><td>Screen size</td></tr>
+    <tr><td>Sneakers</td><td>Flipkart, Myntra</td><td>Colour</td></tr>
+    <tr><td>T-shirts, polos, jerseys</td><td>Flipkart, Myntra</td><td>Colour</td></tr>
+  </table>
+
+  <div class="grid3" style="margin: 6mm 0 2mm;">
+    <div><div class="bignum">0</div><div>paid APIs, API keys or language models. Every decision is a rule you can read.</div></div>
+    <div><div class="bignum">3 gates</div><div>a listing must pass to count: brand, model, and the category's key attribute.</div></div>
+    <div><div class="bignum">~4 s</div><div>typical end-to-end time for a phone, with every store searched in parallel.</div></div>
+  </div>
+
+  <div class="toc">
+    <div><span>1</span><b>Architecture<em>The pieces and how a request travels between them</em></b></div>
+    <div><span>2</span><b>The request, step by step<em>A real lookup traced from the browser to the answer</em></b></div>
+    <div><span>3</span><b>Reading the Amazon page<em>From marketing title to structured facts</em></b></div>
+    <div><span>4</span><b>Searching the stores<em>Queries and one adapter per platform</em></b></div>
+    <div><span>5</span><b>The matching engine<em>Hard gates, category rules and scoring</em></b></div>
+    <div><span>6</span><b>Choosing the winner and the stock verdict</b></div>
+    <div><span>7</span><b>Engineering decisions<em>What was chosen, what was traded away</em></b></div>
+    <div><span>8</span><b>Evaluation, limits and next steps</b></div>
+  </div>
+</section>
+
+<!-- ============================================================ 1 ARCHITECTURE -->
+<section>
+  <div class="section-no">1 &nbsp;Architecture</div>
+  <h2>Two services, four stores</h2>
+  <p>The system is deliberately small: a Next.js frontend that renders the page and proxies API calls, and a FastAPI backend that does all of the work. Both ship as containers and start with <code>docker compose up --build</code>.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 330" width="92%" style="display:block;margin:0 auto">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#12261f"/></marker>
+        <marker id="arm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#5a6a64"/></marker>
+      </defs>
+      <!-- browser -->
+      <rect x="10" y="125" width="110" height="70" rx="8" fill="#ffffff" stroke="#a9b6af"/>
+      <text x="65" y="155" text-anchor="middle" font-size="12" font-weight="700" fill="#12261f">Browser</text>
+      <text x="65" y="173" text-anchor="middle" font-size="9.5" fill="#5a6a64">React page</text>
+      <!-- next -->
+      <rect x="160" y="110" width="135" height="100" rx="8" fill="#eef2ef" stroke="#a9b6af"/>
+      <text x="227" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#12261f">Next.js</text>
+      <text x="227" y="158" text-anchor="middle" font-size="9.5" fill="#5a6a64">serves the UI</text>
+      <text x="227" y="173" text-anchor="middle" font-size="9.5" fill="#5a6a64">rewrites /api/* to</text>
+      <text x="227" y="188" text-anchor="middle" font-size="9.5" fill="#5a6a64">the backend</text>
+      <!-- backend -->
+      <rect x="335" y="40" width="150" height="250" rx="8" fill="#12261f"/>
+      <text x="410" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">FastAPI backend</text>
+      <g font-size="9.5" fill="#d6e4dc">
+        <rect x="350" y="80" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="99" text-anchor="middle">service.py: orchestrate</text>
+        <rect x="350" y="118" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="137" text-anchor="middle">sources/*: 4 adapters</text>
+        <rect x="350" y="156" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="175" text-anchor="middle">normalize.py: facts</text>
+        <rect x="350" y="194" width="120" height="30" rx="5" fill="#e8a33d"/><text x="410" y="213" text-anchor="middle" fill="#12261f" font-weight="600">matcher.py: gates</text>
+        <rect x="350" y="232" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="251" text-anchor="middle">http.py + 15 min cache</text>
+      </g>
+      <!-- stores -->
+      <g font-size="10.5" font-weight="600" fill="#12261f">
+        <rect x="530" y="40" width="100" height="44" rx="6" fill="#fff" stroke="#a9b6af"/><text x="580" y="60" text-anchor="middle">Amazon.in</text><text x="580" y="74" text-anchor="middle" font-size="8.5" font-weight="400" fill="#5a6a64">product page</text>
+        <rect x="530" y="102" width="100" height="44" rx="6" fill="#fff" stroke="#a9b6af"/><text x="580" y="122" text-anchor="middle">Flipkart</text><text x="580" y="136" text-anchor="middle" font-size="8.5" font-weight="400" fill="#5a6a64">HTML search + pages</text>
+        <rect x="530" y="164" width="100" height="44" rx="6" fill="#fff" stroke="#a9b6af"/><text x="580" y="184" text-anchor="middle">Croma</text><text x="580" y="198" text-anchor="middle" font-size="8.5" font-weight="400" fill="#5a6a64">JSON search API</text>
+        <rect x="530" y="226" width="100" height="44" rx="6" fill="#fff" stroke="#a9b6af"/><text x="580" y="246" text-anchor="middle">Myntra</text><text x="580" y="260" text-anchor="middle" font-size="8.5" font-weight="400" fill="#5a6a64">embedded page JSON</text>
+      </g>
+      <!-- arrows -->
+      <path d="M120 160 H156" stroke="#12261f" stroke-width="1.5" marker-end="url(#ar)"/>
+      <path d="M295 160 H331" stroke="#12261f" stroke-width="1.5" marker-end="url(#ar)"/>
+      <g stroke="#5a6a64" stroke-width="1.2" fill="none" marker-end="url(#arm)">
+        <path d="M485 95 C505 95 505 62 526 62"/>
+        <path d="M485 133 C505 133 505 124 526 124"/>
+        <path d="M485 171 C505 171 505 186 526 186"/>
+        <path d="M485 209 C505 209 505 248 526 248"/>
+      </g>
+      <text x="138" y="150" text-anchor="middle" font-size="8.5" fill="#5a6a64">POST</text>
+      <text x="313" y="150" text-anchor="middle" font-size="8.5" fill="#5a6a64">proxy</text>
+      <text x="410" y="312" text-anchor="middle" font-size="9" fill="#5a6a64">stores are queried in parallel threads</text>
+    </svg>
+    <figcaption>Figure 1. The browser only ever talks to the Next.js server. The backend is reachable only inside the Docker network; it fetches the public pages and data each store's own website uses.</figcaption>
+  </figure>
+
+  <h3 style="margin-top:2mm;break-after:avoid">Code map</h3>
+  <table>
+    <tr><th style="width:34%">File</th><th>Responsibility</th></tr>
+    <tr><td><code>app/main.py</code></td><td>HTTP endpoints, error mapping (<code>422</code> unsupported link or category, <code>502</code> Amazon unreadable).</td></tr>
+    <tr><td><code>app/service.py</code></td><td>Orchestration: cache, build queries, fan out to stores, match, pick the winner, confirm stock.</td></tr>
+    <tr><td><code>app/sources/amazon.py</code></td><td>Resolve the product ID (ASIN), read the product page into a structured <code>Listing</code>.</td></tr>
+    <tr><td><code>app/sources/flipkart.py</code><br><code>croma.py</code>, <code>myntra.py</code></td><td>One adapter per store with the same two functions: <code>search(query)</code> and <code>enrich(listing)</code>.</td></tr>
+    <tr><td><code>app/normalize.py</code></td><td>Text to facts: RAM, storage, screen size, colour families, model tokens, TV model codes, garment facts.</td></tr>
+    <tr><td><code>app/matcher.py</code></td><td>The rules. Returns a verdict with a score and human-readable reasons.</td></tr>
+    <tr><td><code>app/http.py</code></td><td>Shared client with a real Chrome TLS fingerprint, per-store cookie sessions, retries.</td></tr>
+  </table>
+</section>
+
+<!-- ============================================================ 2 REQUEST STEP BY STEP -->
+<section>
+  <div class="section-no">2 &nbsp;The request, step by step</div>
+  <h2>Tracing one real lookup</h2>
+  <p>Everything below is from an actual run. The link is a OnePlus Nord CE6 Lite, 8&nbsp;GB RAM, 128&nbsp;GB storage, in Vivid Mint. The full round trip took <strong>3.9 seconds</strong>.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 300" width="100%">
+      <g font-size="10" font-weight="600" fill="#12261f">
+        <text x="0" y="34">Browser</text><text x="0" y="74">Next.js</text><text x="0" y="114">Backend</text>
+        <text x="0" y="154">Amazon</text><text x="0" y="194">Flipkart</text><text x="0" y="234">Croma</text>
+      </g>
+      <g stroke="#d3dad5"><line x1="70" y1="30" x2="630" y2="30"/><line x1="70" y1="70" x2="630" y2="70"/><line x1="70" y1="110" x2="630" y2="110"/><line x1="70" y1="150" x2="630" y2="150"/><line x1="70" y1="190" x2="630" y2="190"/><line x1="70" y1="230" x2="630" y2="230"/></g>
+      <!-- time axis: 70px = 0s, 630 = 4s => 140px/s -->
+      <g font-size="8.5" fill="#5a6a64"><text x="70" y="270">0 s</text><text x="210" y="270">1 s</text><text x="350" y="270">2 s</text><text x="490" y="270">3 s</text><text x="606" y="270">3.9 s</text></g>
+      <line x1="70" y1="256" x2="630" y2="256" stroke="#a9b6af"/>
+      <!-- bars -->
+      <rect x="70" y="22" width="560" height="16" rx="3" fill="#eef2ef"/><text x="78" y="34" font-size="8.5" fill="#5a6a64">waiting: scan bar + skeleton rows</text>
+      <rect x="72" y="62" width="556" height="16" rx="3" fill="#eef2ef"/><text x="80" y="74" font-size="8.5" fill="#5a6a64">proxy holds the request open</text>
+      <rect x="74" y="102" width="20" height="16" rx="3" fill="#12261f"/><text x="98" y="114" font-size="8.5" fill="#12261f">ASIN + cache miss</text>
+      <rect x="94" y="142" width="150" height="16" rx="3" fill="#a9b6af"/><text x="100" y="154" font-size="8.5" fill="#12261f">fetch + parse product page</text>
+      <rect x="250" y="182" width="230" height="16" rx="3" fill="#1e6b52"/><text x="256" y="194" font-size="8.5" fill="#fff">search, match 24 cards, open the winner's page</text>
+      <rect x="250" y="222" width="90" height="16" rx="3" fill="#1e6b52"/><text x="256" y="234" font-size="8.5" fill="#fff">search, match 6</text>
+      <rect x="560" y="102" width="40" height="16" rx="3" fill="#e8a33d"/><text x="546" y="96" font-size="8.5" fill="#12261f">respond</text>
+      <path d="M250 118 V182 M250 118 V222" stroke="#12261f" stroke-dasharray="2 2"/>
+      <text x="256" y="130" font-size="8.5" fill="#5a6a64">fan out in parallel</text>
+    </svg>
+    <figcaption>Figure 2. Where the time goes. Amazon must be read first, because its facts decide what to search for; after that every store runs at the same time, so total time is set by the slowest store, not the sum. (Bar widths are illustrative of a typical run.)</figcaption>
+  </figure>
+
+  <div class="step"><div class="n">1</div><div>
+    <h3>The browser sends the link</h3>
+    <p>The page posts <code>{"url": "...", "refresh": false}</code> to <code>/api/compare</code> on its own origin. Next.js rewrites that path to the backend, so the browser never needs to know where the backend lives and there are no cross-origin requests in production.</p>
+  </div></div>
+
+  <div class="step"><div class="n">2</div><div>
+    <h3>The backend finds the product ID</h3>
+    <p>Amazon links come in many shapes: <code>/dp/</code>, <code>/gp/product/</code>, <code>/gp/aw/d/</code> from the mobile app, long tracking URLs, and <code>amzn.in</code> short links. A regex extracts the 10-character ASIN; short links are followed to their redirect target first. The ASIN is the cache key: a repeat lookup within <strong>15 minutes</strong> returns instantly unless the user presses "Check again".</p>
+  </div></div>
+
+  <div class="step"><div class="n">3</div><div>
+    <h3>The Amazon page becomes facts</h3>
+    <p>The canonical page <code>amazon.in/dp/ASIN</code> is fetched and turned into a structured listing (section 3 explains how):</p>
+<pre>{ <span class="key">"brand"</span>: <span class="s">"OnePlus"</span>,  <span class="key">"category"</span>: <span class="s">"smartphone"</span>,  <span class="key">"colour"</span>: <span class="s">"Vivid Mint"</span>,
+  <span class="key">"ram_gb"</span>: 8,  <span class="key">"storage_gb"</span>: 128,  <span class="key">"price"</span>: 30999,  <span class="key">"available"</span>: true,
+  <span class="key">"title"</span>: <span class="s">"OnePlus Nord CE6 Lite | 8GB+128GB | Vivid Mint | Segment's Fastest Dimensity…"</span> }</pre>
+  </div></div>
+
+  <div class="step"><div class="n">4</div><div>
+    <h3>Each store is searched at the same time</h3>
+    <p>The category decides the stores (Flipkart and Croma for a phone). Each gets a list of queries, tried in order until one produces a match: <code>OnePlus nord ce6 lite 8GB RAM 128GB</code>, then <code>… Vivid Mint 128GB</code>, then <code>OnePlus nord ce6 lite</code>.</p>
+  </div></div>
+
+  <div class="step"><div class="n">5</div><div>
+    <h3>Every result goes through the gates</h3>
+    <p>Flipkart returned 24 listings and Croma 6. Each one is checked against the Amazon facts; anything that fails a single gate is dropped with a reason (figure 4 shows Croma's six).</p>
+  </div></div>
+
+  <div class="step"><div class="n">6</div><div>
+    <h3>A winner is picked and its stock confirmed</h3>
+    <p>Among listings that passed, the same colour wins. Stock is read from the store's own signal, opening the product page when the search result doesn't say.</p>
+  </div></div>
+
+  <div class="step"><div class="n">7</div><div>
+    <h3>The answer is rendered</h3>
+<pre>{ <span class="key">"platform"</span>: <span class="s">"croma"</span>, <span class="key">"status"</span>: <span class="s">"in_stock"</span>, <span class="key">"price"</span>: 30999, <span class="key">"confidence"</span>: 1.0,
+  <span class="key">"title"</span>: <span class="s">"OnePlus Nord CE6 Lite 5G (8GB RAM, 128GB, Vivid Mint)"</span>,
+  <span class="key">"query"</span>: <span class="s">"OnePlus nord ce6 lite 8GB RAM 128GB"</span>, <span class="key">"candidates_checked"</span>: 6,
+  <span class="key">"reasons"</span>: [<span class="s">"brand OnePlus matches"</span>, <span class="s">"model ce6 lite matches"</span>, <span class="s">"storage 128GB matches"</span>,
+              <span class="s">"RAM 8GB matches"</span>, <span class="s">"same colour (Vivid Mint)"</span>] }</pre>
+    <p>The page shows Amazon as the reference row and one row per store, with the price difference against Amazon (Flipkart: ₹28,099, <strong>₹2,900 less</strong>). The reasons array powers the "Why" panel on each row.</p>
+  </div></div>
+</section>
+
+<!-- ============================================================ 3 AMAZON -->
+<section>
+  <div class="section-no">3 &nbsp;Reading the Amazon page</div>
+  <h2>From a marketing title to comparable facts</h2>
+  <p>Amazon titles are written to sell, not to be parsed: <em>"OnePlus Nord CE6 Lite | 8GB+128GB | Vivid Mint | Segment's Fastest Dimensity 7400 Apex Processor | 7000mAh Battery…"</em>. So the backend prefers structured data. Amazon's spec tables come in at least four layouts (product overview, tech specs, detail bullets, fashion "product facts"); all are merged into one key-value map with keys like <code>brand</code>, <code>model name</code>, <code>colour</code> and <code>item model number</code>. The title fills gaps, and its first word is the fallback brand.</p>
+
+  <h3>Category detection, in order</h3>
+  <ol>
+    <li><strong>Breadcrumbs</strong> mention smartphones, televisions, t-shirts/polos/jerseys, or shoes/sneakers.</li>
+    <li><strong>Title words</strong>: "smartphone", "mobile phone", "iPhone", "TV" with a size, "polo", "jersey", "sneakers"…</li>
+    <li><strong>Spec-table evidence</strong>: a phone operating system (iOS, Android, One UI…) plus storage or SIM details. This rescued a real page titled just "iPhone Duo (512 GB) - Night Sky" with no breadcrumbs.</li>
+  </ol>
+  <p>Accessories are excluded before any of this ("case", "cover", "tempered", "compatible with"…), so a replacement iPhone screen is not mistaken for an iPhone. Anything outside the four categories gets a clear <code>422</code> message.</p>
+
+  <h3>Normalisation: making facts comparable</h3>
+  <table>
+    <tr><th style="width:24%">Fact</th><th style="width:36%">Raw text seen</th><th>Normalised to</th></tr>
+    <tr><td>Memory</td><td>"8GB+128GB", "8 GB RAM | 128 GB ROM", "(12GB RAM, 256GB)"</td><td><code>ram_gb</code>, <code>storage_gb</code>. RAM above 32 GB is discarded (Amazon sometimes puts storage in the RAM field on iPhones).</td></tr>
+    <tr><td>Screen</td><td>"139 cms (55 inches)", "108 cm (43 Inch)", "109.22 cm"</td><td>Whole inches (cm ÷ 2.54), compared within ±1 inch.</td></tr>
+    <tr><td>Colour</td><td>"Titanium Gray", "Onyx Black", "CBLACK/FTWWHT"</td><td>Ordered base colours: grey; black; black, white. Families: navy ≈ blue, olive ≈ green.</td></tr>
+    <tr><td>Brand</td><td>"SAMSUNG", "Visit the Samsung Store", "Redmi"</td><td>Lower-case alphanumerics with aliases (redmi, poco → xiaomi).</td></tr>
+    <tr><td>TV model</td><td>"UA55UE85AHULXL", "K-55S25BM2"</td><td>Full code plus series without size and region suffix: <code>ue85ah</code>, <code>s25bm2</code>.</td></tr>
+    <tr><td>Wearer</td><td>"Department: Men", "Unisex", "Older Kids'"</td><td>men / women / kids / unisex. Unisex is compatible with men and women, never kids.</td></tr>
+  </table>
+
+  <div class="callout warm"><p><strong>Why not just compare titles?</strong> Because the difference between two products is often one short token. "Galaxy S24" and "Galaxy S24 Ultra" share 90% of their characters; "8GB RAM" and "6GB RAM" differ by one digit. String similarity rates these as near-identical. Extracting facts first lets the matcher compare the things that actually distinguish products.</p></div>
+</section>
+
+<!-- ============================================================ 4 STORES -->
+<section>
+  <div class="section-no">4 &nbsp;Searching the stores</div>
+  <h2>One adapter per store, one interface</h2>
+  <p>Each store is reached the way its own website gets its data, with a real Chrome TLS fingerprint (<code>curl_cffi</code>) so requests look like a normal browser visit. Every adapter turns results into the same <code>Listing</code> shape, so the matcher never knows which store it is looking at.</p>
+
+  <table>
+    <tr><th style="width:15%">Store</th><th style="width:32%">Search</th><th style="width:30%">Stock signal</th><th>Quirks handled</th></tr>
+    <tr><td>Flipkart</td><td>Server-rendered search HTML. Product cards are parsed for title, brand, RAM/storage, price and "Currently unavailable" / "Sold out" flags.</td><td>The product page's own <code>availabilityStatus</code>: <code>IN_STOCK</code> or <code>OUT_OF_STOCK</code>.</td><td>Cards hide colour (fashion) and model codes (TVs), so product pages are opened for plausible candidates only: at most 8 per query, 4 at a time.</td></tr>
+    <tr><td>Croma</td><td>The public JSON search API that croma.com calls (<code>query:relevance</code>).</td><td><code>stockFlag</code>: the list of stores and warehouses holding stock. Empty means it can't be bought.</td><td>Very loose relevance ("S24" returns S22 and S26 Ultra). Names TVs by series ("LG NU870B"), not full code.</td></tr>
+    <tr><td>Myntra</td><td>The search page embeds its results as JSON (<code>window.__myx</code>); a JSON gateway endpoint is the fallback.</td><td>Any size in <code>inventoryInfo</code> marked available.</td><td>Needs cookies from its homepage first, so the session is warmed once and reused.</td></tr>
+  </table>
+
+  <h3>Query building, by category</h3>
+  <table>
+    <tr><th style="width:18%">Category</th><th style="width:44%">Queries, tried in order</th><th>Why</th></tr>
+    <tr><td>Smartphone</td><td>brand + model + RAM + storage → brand + model + colour + storage → brand + model</td><td>Narrow first. The colour query runs if no exact-colour variant has turned up yet.</td></tr>
+    <tr><td>TV</td><td>full model code → brand + series code + size → brand + series words + size</td><td>Stores index codes inconsistently; the series form catches Croma's naming.</td></tr>
+    <tr><td>Sneakers</td><td>brand + model + colour + gender → brand + model</td><td>Shoes are sold per colourway.</td></tr>
+    <tr><td>Apparel</td><td>(jerseys: brand + team/event words) → brand + gender + colour + pattern + garment → brand + gender + garment</td><td>Clothes rarely have model names; their facts become the query.</td></tr>
+  </table>
+
+  <h3>Failure handling</h3>
+  <div class="grid2 small" style="gap:4mm 8mm">
+    <p style="margin:0"><strong>Retries with a fresh session.</strong> HTTP 401/403/429/5xx and network errors trigger one retry (two for Amazon) with a reset cookie session and back-off.</p>
+    <p style="margin:0"><strong>Errors are not absences.</strong> If every query to a store fails, it reports <span class="pill t-err"><span class="dot d-err"></span>Couldn't check</span>, never <span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span>.</p>
+    <p style="margin:0"><strong>Isolation.</strong> Each store runs in its own guarded thread; an exception in one becomes an error row and the others still answer.</p>
+    <p style="margin:0"><strong>Captchas.</strong> If Amazon serves one, the session is reset and retried once, then the user is told plainly to try again shortly.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 5 MATCHING -->
+<section>
+  <div class="section-no">5 &nbsp;The matching engine</div>
+  <h2>Three gates, then a score</h2>
+  <p>A listing counts as the same product only if it passes <strong>every</strong> gate. Scores are computed only for listings that already passed, and only to rank them. "Almost the same" never becomes a match.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 250" width="100%">
+      <g font-size="10" fill="#12261f">
+        <rect x="0" y="10" width="640" height="38" rx="5" fill="#eef2ef"/>
+        <text x="12" y="34" font-weight="700">6 listings returned by Croma</text><text x="628" y="34" text-anchor="end" fill="#5a6a64">query "OnePlus nord ce6 lite 8GB RAM 128GB"</text>
+        <rect x="0" y="56" width="640" height="38" rx="5" fill="#e1efe8"/>
+        <text x="12" y="80" font-weight="700">Brand: 6 pass</text><text x="628" y="80" text-anchor="end" fill="#5a6a64">all OnePlus</text>
+        <rect x="0" y="102" width="640" height="38" rx="5" fill="#cfe5da"/>
+        <text x="12" y="126" font-weight="700">Model: 6 pass</text><text x="628" y="126" text-anchor="end" fill="#5a6a64">distinguishing tokens {ce6, lite} identical</text>
+        <rect x="0" y="148" width="430" height="38" rx="5" fill="#1e6b52"/>
+        <text x="12" y="172" font-weight="700" fill="#fff">RAM + storage: 2 pass</text>
+        <text x="440" y="164" font-size="9" fill="#a8321f">✕ 6GB RAM, 128GB (×2): RAM differs</text>
+        <text x="440" y="178" font-size="9" fill="#a8321f">✕ 8GB RAM, 256GB (×2): storage differs</text>
+        <rect x="0" y="194" width="215" height="38" rx="5" fill="#12261f"/>
+        <text x="12" y="218" font-weight="700" fill="#fff">Colour tier: 1 wins</text>
+        <text x="225" y="210" font-size="9" fill="#12261f">✓ Vivid Mint: exact colour (tier 2), 7 stores hold stock</text>
+        <text x="225" y="224" font-size="9" fill="#5a6a64">· Hyper Black: passes every gate but different colour (tier 0)</text>
+      </g>
+    </svg>
+    <figcaption>Figure 4. The real Croma funnel for this lookup. Note that the Hyper Black version had far more stock (123 locations) but loses on colour: the same colour beats availability.</figcaption>
+  </figure>
+
+  <h3>Gate 1: brand</h3>
+  <p>Normalised brands must be equal, or one must start with the other (samsung / samsungindia), using the alias table. If a store omits the brand, the first word of its title is tried.</p>
+
+  <h3>Gate 2: model, with a different rule per category</h3>
+  <div class="grid2">
+    <div class="card"><h4>Smartphones</h4><p class="small">Marketing words are stripped ("5G", "AI Smartphone", spec figures). The remaining <strong>distinguishing tokens</strong> (anything with a digit, or a variant word such as Pro, Ultra, Plus, Lite, FE, Fold) must be <strong>identical sets</strong>. Names with neither (iPhone Duo) must match word for word. Amazon's structured "Model Name" is preferred to the title.</p>
+    <p class="small mono" style="color:#a8321f">Galaxy S24 vs Galaxy S22 → missing [s24], extra [s22]</p></div>
+    <div class="card"><h4>Televisions</h4><p class="small">The manufacturer <strong>model code</strong> decides. An exact code match scores 1.0. A series-level match (Croma's "NU870B" inside Amazon's "43NU870BPLA") is accepted at 0.75 and labelled as such. If neither side shows a code, the series words must be ≥60% similar.</p>
+    <p class="small mono" style="color:#1e6b52">43NU870BPLA vs NU870B → series match</p></div>
+    <div class="card"><h4>Sneakers</h4><p class="small">A matching style code (e.g. <code>DD8959-100</code>) is an instant match. Otherwise model words must overlap ≥60% (Dice coefficient) <strong>and</strong> version tokens must be identical: numbers ('07, 3.0, v2) and words like Mid, Low, Comfort, LV8. Aliases fix spelling: Lo → Low, NN → Next Nature.</p>
+    <p class="small mono" style="color:#a8321f">Smashic Comfort vs Smashic → version differs</p></div>
+    <div class="card"><h4>T-shirts, polos, jerseys</h4><p class="small">Clothes rarely have model names, so "model" means garment facts: <strong>type</strong>, <strong>pattern</strong>, <strong>fit</strong>, <strong>sleeve</strong>, <strong>neck</strong>, <strong>material</strong>. Any known fact that differs rejects; at least two must agree. Jerseys can instead match on shared team or event words (India, T20, International).</p>
+    <p class="small mono" style="color:#a8321f">Classic-fit cotton tee vs relaxed polyester tee → fit differs</p></div>
+  </div>
+
+  <h3>Gate 3: the category's key attribute</h3>
+  <ul>
+    <li><strong>Phones:</strong> storage must be equal. RAM must be equal whenever both sides state it; Apple never publishes RAM, so model plus storage decide there.</li>
+    <li><strong>TVs:</strong> screen size within ±1 inch, which absorbs 138 cm vs 139.7 cm rounding.</li>
+    <li><strong>Sneakers and apparel:</strong> the primary base colour must match, either exactly or within a family; the wearer must be compatible.</li>
+  </ul>
+
+  <h3>Scoring</h3>
+  <p>For listings that pass, <code>score = 0.5 + 0.5 × similarity</code>, where similarity comes from the model check (1.0 for an exact code or identical tokens). An exact colour adds 0.1 over a family colour for fashion. Apparel matched on garment facts alone is <strong>capped at 0.85</strong>, because it is honestly less certain than a model number; the UI shows "Likely match, 85% confidence" so the user can judge.</p>
+</section>
+
+<!-- ============================================================ 6 WINNER + STOCK -->
+<section>
+  <div class="section-no">6 &nbsp;Choosing the winner and the stock verdict</div>
+  <h2>Same colour first, then the store's own word on stock</h2>
+  <p>Phones are listed once per colour (and sometimes once per seller), so several listings often pass every gate. The assignment only requires RAM and storage to match, but a different colour is not what the user asked for, so the winner is chosen by an ordered key:</p>
+<pre><span class="c"># service.py (simplified)</span>
+<span class="k">def</span> rank(match):
+    score, listing, _ = match
+    tier = colour_tier(source, listing)   <span class="c"># 2 exact name · 1 same base colour · 0 other</span>
+    <span class="k">return</span> (tier, round(score, 2), listing.available <span class="k">is not</span> False, listing.available <span class="k">is</span> True)
+
+best = max(matches, key=rank)</pre>
+
+  <div class="grid2">
+    <div>
+      <h4>If the exact colour is sold out</h4>
+      <p>The result is <span class="pill t-out"><span class="dot d-out"></span>Out of stock</span>, because that is the true answer for that product, with a note: "This colour is sold out, but the same model is available in Marble Gray, Onyx Black." Before concluding that, up to three equally ranked listings are opened, since a store can list the same variant twice.</p>
+    </div>
+    <div>
+      <h4>If the colour isn't listed at all</h4>
+      <p>The closest variant is shown with its score reduced by 10% and a visible warning: "Same model, RAM and storage, but in Hyper Black: the Vivid Mint version isn't listed here."</p>
+    </div>
+  </div>
+
+  <h3>The four outcomes</h3>
+  <table>
+    <tr><th style="width:22%">Status</th><th style="width:40%">When</th><th>Shown as</th></tr>
+    <tr><td><span class="pill t-in"><span class="dot d-in"></span>In stock</span></td><td>A listing passed every gate and the store says it can be bought.</td><td>Solid green mark, "Buy" button, price and difference from Amazon.</td></tr>
+    <tr><td><span class="pill t-out"><span class="dot d-out"></span>Out of stock</span></td><td>A listing passed every gate but the store says it can't be bought right now.</td><td>Half-filled amber mark, "View" button.</td></tr>
+    <tr><td><span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span></td><td>Searches succeeded, but no listing passed every gate.</td><td>Hollow ring, how many listings were checked, and why the closest ones failed.</td></tr>
+    <tr><td><span class="pill t-err"><span class="dot d-err"></span>Couldn't check</span></td><td>The store could not be reached at all.</td><td>Red mark; explicitly not a claim that the store doesn't sell it.</td></tr>
+  </table>
+
+  <div class="callout"><p><strong>Explainability is a feature, not a debug log.</strong> Every row's "Why" panel lists the query used and each check that passed, or, for "not listed", the closest rejected listings with the gate they failed ("Redmi Note 17 Pro → different model (missing 14, extra 17)"). It lets a user trust a verdict, and it let me find almost every bug in this project in seconds.</p></div>
+</section>
+
+<!-- ============================================================ 7 DECISIONS -->
+<section>
+  <div class="section-no">7 &nbsp;Engineering decisions</div>
+  <h2>What was chosen, and what was traded away</h2>
+
+  <table>
+    <tr><th style="width:24%">Decision</th><th style="width:38%">Why</th><th>Cost</th></tr>
+    <tr><td>Rules, not a language model</td><td>Deterministic, free, fast and fully explainable. Product identity is mostly about exact tokens (S24 vs S24 Ultra), which rules handle better than fuzzy similarity.</td><td>Hand-written rules need maintenance; apparel without model names is inherently fuzzy.</td></tr>
+    <tr><td>Hard gates before scoring</td><td>A wrong match ("buy this", but it is the 6 GB model) is worse than a miss. Precision over recall.</td><td>Some true matches with messy listings are reported as not listed.</td></tr>
+    <tr><td>Facts before text</td><td>Comparing normalised RAM, size, colour and codes is robust to every store's writing style.</td><td>Each new attribute needs a parser and tests.</td></tr>
+    <tr><td>Parallel stores, sequential queries</td><td>Total time ≈ slowest store. Queries stop at the first that yields a match, keeping request volume low.</td><td>A threaded design; an async client would scale further.</td></tr>
+    <tr><td>Product pages only when needed</td><td>Flipkart cards lack colour and TV codes; opening at most 8 pre-filtered pages per query bounds cost.</td><td>A true match ranked beyond the shortlist can be missed.</td></tr>
+    <tr><td>"Couldn't check" as its own state</td><td>Silent failure reported as "not listed" would be a confident wrong answer.</td><td>One more state for users to learn.</td></tr>
+    <tr><td>In-memory 15-minute cache</td><td>Instant repeats, kind to the stores, zero infrastructure.</td><td>Lost on restart and not shared across instances.</td></tr>
+    <tr><td>Browser-like requests</td><td>The stores serve the same public pages a shopper sees.</td><td>Depends on page structure; cloud IPs are blocked more often than home connections.</td></tr>
+  </table>
+
+  <h3>Security and hygiene</h3>
+  <ul>
+    <li>The backend is not exposed outside Docker; the browser only reaches the Next.js server.</li>
+    <li>Both containers run as non-root users; the backend has a health check the frontend waits on.</li>
+    <li>Input is validated: only Amazon hosts are accepted, and only a product ID is ever used to build a request.</li>
+    <li>No secrets exist in the system at all, because it uses no keys.</li>
+  </ul>
+  <div class="callout" style="margin-top:6mm"><p><strong>Run it:</strong> <code>docker compose up --build</code>, then open <code>http://localhost:3005</code>. Source, README and the plain-language explainer are in the repository.</p></div>
+</section>
+
+<!-- ============================================================ 8 EVALUATION -->
+<section>
+  <div class="section-no">8 &nbsp;Evaluation, limits and next steps</div>
+  <h2>Tested on real links</h2>
+  <p>A fixed set of 15 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, including deliberately awkward ones: a page without breadcrumbs, a model name without numbers, adidas colour codes, a licensed cricket jersey. Results from the latest run:</p>
+
+  <table style="font-size:8.2pt">
+    <tr><th style="width:42%">Amazon product</th><th style="width:29%">Store 1</th><th>Store 2</th></tr>
+    <tr><td>Samsung Galaxy S24, 8/128, Amber Yellow</td><td><span class="pill t-out"><span class="dot d-out"></span>Flipkart</span> same colour sold out</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span> only S22 / S26 listed</td></tr>
+    <tr><td>Apple iPhone 16, 128 GB, Teal</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Flipkart</span> only 16 Plus / Pro</td><td><span class="pill t-in"><span class="dot d-in"></span>Croma</span> Teal, 128 GB</td></tr>
+    <tr><td>Apple iPhone Duo, 512 GB, Night Sky</td><td><span class="pill t-out"><span class="dot d-out"></span>Flipkart</span></td><td><span class="pill t-out"><span class="dot d-out"></span>Croma</span></td></tr>
+    <tr><td>Redmi Note 14 Pro, 8/128, Titan Black</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span> only Note 17 Pro</td></tr>
+    <tr><td>OnePlus Nord CE6 Lite, 8/128, Vivid Mint</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Croma</span></td></tr>
+    <tr><td>LG 43" NU870B (43NU870BPLA)</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> code from product page</td><td><span class="pill t-in"><span class="dot d-in"></span>Croma</span> series match</td></tr>
+    <tr><td>Samsung 55" Mini LED (UA55M2EHAULXL)</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span></td></tr>
+    <tr><td>Sony 55" Bravia 2 M2 (K-55S25BM2)</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> series match, flagged</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span> no code shown</td></tr>
+    <tr><td>Samsung 55" Crystal UHD (UA55UE85AHULXL)</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Flipkart</span></td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span></td></tr>
+    <tr><td>Nike Court Vision Lo NN, White</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span></td></tr>
+    <tr><td>Puma Smashic Comfort, White</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Flipkart</span> plain Smashic rejected</td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span> exact</td></tr>
+    <tr><td>adidas Grand Court 3.0, CBLACK/FTWWHT</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span></td></tr>
+    <tr><td>U.S. Polo Assn. printed slim polo, Olive</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> 85%, olive ≈ green</td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span> 85%, olive</td></tr>
+    <tr><td>Puma printed classic-fit cotton tee, White</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> 85%</td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span> 85%</td></tr>
+    <tr><td>adidas India T20 cricket fan jersey</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span></td></tr>
+  </table>
+  <p class="small muted">For every "not listed" above, the closest rejected listings and the gate they failed were reviewed in the app's "Why" panel. Stock states reflect the stores at the time of the run and change daily.</p>
+
+  <div class="grid2" style="margin-top: 4mm;">
+    <div>
+      <h3 style="margin-top:0">Known limits</h3>
+      <ul>
+        <li>Scrapers depend on page structure; a redesign means updating one adapter file.</li>
+        <li>Apparel without a style code can confuse two near-identical items from one brand; confidence is capped to make that visible.</li>
+        <li>Stock is checked without a pincode: "the store is selling it", not "it can reach you".</li>
+        <li>Store search ranking bounds recall: if a store doesn't surface the item in its results, we don't see it.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">With more time</h3>
+      <ul>
+        <li><strong>Labelled evaluation set</strong> with precision and recall per category, run in CI.</li>
+        <li><strong>Adapter health monitoring</strong>: alert when a store's parse rate drops, before users notice.</li>
+        <li><strong>Async client and Redis cache</strong> for concurrency and shared, persistent results.</li>
+        <li><strong>A model as a tie-breaker only</strong> for low-confidence apparel, behind the same hard gates.</li>
+        <li><strong>Pincode-aware stock</strong> and price history.</li>
+      </ul>
+    </div>
+  </div>
+
+</section>
+
+</body>
+</html>

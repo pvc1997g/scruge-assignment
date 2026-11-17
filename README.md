@@ -12,10 +12,31 @@ Paste an Amazon.in product link and see whether the **same product** is sold on 
 Each platform shows one of: **In stock** (with link), **Out of stock** (with link), **Not listed**, or
 **Couldn't check** (the site didn't respond, which is never reported as "not listed").
 
-📄 **How matching works (explained like you're 5):** [`docs/HOW_MATCHING_WORKS.md`](docs/HOW_MATCHING_WORKS.md),
-also served in the app at `/how-it-works`.
+## Documents
 
-## Run it locally
+- **[The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf)**: how matching works, explained for a five-year-old (10-page picture book).
+- **[How a link becomes an answer](docs/Scruge-Technical-Walkthrough.pdf)**: the end-to-end technical walkthrough, with architecture, a real request traced step by step, the matching rules, design decisions and test results (12 pages).
+- [`docs/HOW_MATCHING_WORKS.md`](docs/HOW_MATCHING_WORKS.md): the same explanation as text, also served in the app at `/how-it-works`.
+
+The PDFs are rendered from `docs/pdf/*.html` with headless Chrome.
+
+## Run it (one command)
+
+Requirement: [Docker](https://docs.docker.com/get-docker/) with Compose.
+
+```bash
+docker compose up --build
+```
+
+Then open **http://localhost:3005**. The first build takes a few minutes; later starts take seconds.
+
+- Port 3005 taken? Run `PORT=8080 docker compose up --build` and open http://localhost:8080.
+- Stop everything with `Ctrl+C`, or `docker compose down` if you started it with `-d`.
+
+Two containers start: `backend` (FastAPI, reachable only inside the Docker network) and `frontend` (Next.js,
+which proxies `/api/*` to the backend). The frontend waits until the backend's health check passes.
+
+## Run without Docker (for development)
 
 Requirements: Python 3.11+ and Node 20+.
 
@@ -37,6 +58,10 @@ Open http://localhost:3005. The frontend proxies `/api/*` to the backend (set `B
 Terminal-only check of one or more links:
 
 ```bash
+# with Docker (stack running):
+docker compose exec backend python scripts/try_link.py https://www.amazon.in/dp/B0GVYGLNH7
+
+# without Docker:
 cd backend
 .venv/bin/python scripts/try_link.py https://www.amazon.in/dp/B0GVYGLNH7
 .venv/bin/python scripts/try_link.py $(grep -v '^#' scripts/test_links.txt)   # whole test set

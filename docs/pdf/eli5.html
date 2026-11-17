@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Same-Toy Detective</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=block" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f1f6f2;
+    --ink: #12261f;
+    --soft: #4f6259;
+    --marigold: #e8a33d;
+    --sun: #f6cd6a;
+    --mint: #9ed3b4;
+    --leaf: #1e6b52;
+    --sky: #8cc3e3;
+    --sea: #2f6f9f;
+    --berry: #c95b8c;
+    --rose: #f2a7b8;
+    --red: #d9534a;
+    --white: #ffffff;
+  }
+  @page { size: A4 landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font-family: "Baloo 2", system-ui, sans-serif; color: var(--ink); }
+  svg text { font-family: "Baloo 2", sans-serif; }
+
+  .page { width: 297mm; height: 210mm; padding: 16mm 20mm; position: relative; overflow: hidden; background: var(--paper); break-after: page; display: grid; }
+  .page:last-child { break-after: auto; }
+  .split { grid-template-columns: 1fr 1.05fr; gap: 12mm; align-items: center; }
+  .stack { grid-template-rows: auto auto; gap: 9mm; align-content: center; }
+
+  h1 { font-size: 54pt; line-height: 0.95; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 36pt; line-height: 1.02; font-weight: 800; margin: 0 0 5mm; letter-spacing: -0.005em; }
+  p { font-size: 19pt; line-height: 1.35; margin: 0 0 4mm; font-weight: 500; max-width: 125mm; }
+  p.big { font-size: 22pt; }
+  .soft { color: var(--soft); }
+  .hl { background: linear-gradient(transparent 58%, var(--sun) 58%); padding: 0 1mm; }
+  .pn { position: absolute; right: 12mm; bottom: 8mm; font-size: 12pt; font-weight: 700; color: var(--soft); }
+  .art { display: flex; align-items: center; justify-content: center; height: 100%; }
+  .art svg { width: 100%; height: auto; max-height: 170mm; }
+
+  /* tiles */
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6mm; align-items: stretch; }
+  .tile { min-width: 0; background: var(--white); border-radius: 7mm; padding: 7mm 5mm 7mm; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .tile svg { height: 46mm; width: auto; }
+  .tile h3 { font-size: 21pt; margin: 3mm 0 1mm; line-height: 1; }
+  .tile p { font-size: 15pt; margin: 0; line-height: 1.25; max-width: none; }
+
+  .check { display: grid; gap: 5mm; }
+  .q { display: grid; grid-template-columns: 18mm 1fr auto; align-items: center; gap: 5mm; background: var(--white); border-radius: 6mm; padding: 4mm 6mm; }
+  .q b { font-size: 24pt; line-height: 1.05; }
+  .q small { display: block; font-size: 14pt; color: var(--soft); font-weight: 500; }
+  .yes { font-size: 18pt; font-weight: 800; color: var(--leaf); background: #e1efe8; border-radius: 10mm; padding: 1mm 6mm; }
+
+  .outcomes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7mm; }
+  .out { background: var(--white); border-radius: 7mm; padding: 6mm; display: flex; flex-direction: column; }
+  .out svg { width: 100%; height: 52mm; }
+  .out h3 { font-size: 23pt; margin: 3mm 0 1mm; line-height: 1.05; display: flex; align-items: center; gap: 3mm; }
+  .out p { font-size: 15pt; margin: 0; max-width: none; line-height: 1.3; }
+  .dot { width: 6mm; height: 6mm; border-radius: 50%; display: inline-block; flex: none; }
+
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5mm; }
+  .stp { min-width: 0; background: var(--white); border-radius: 7mm; padding: 7mm 5mm 8mm; text-align: center; }
+  .stp .n { width: 13mm; height: 13mm; border-radius: 50%; background: var(--ink); color: white; font-weight: 800; font-size: 20pt; display: grid; place-items: center; margin: 0 auto 2mm; line-height: 1; padding-top: 1mm; }
+  .stp svg { height: 34mm; width: auto; }
+  .stp h3 { font-size: 19pt; margin: 2mm 0 0; line-height: 1.1; }
+</style>
+</head>
+<body>
+
+<!-- Shared drawings -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="phone" viewBox="0 0 64 112">
+      <rect x="2" y="2" width="60" height="108" rx="12" fill="var(--b, #12261f)"/>
+      <rect x="7" y="12" width="50" height="84" rx="5" fill="var(--s, #8cc3e3)"/>
+      <circle cx="32" cy="103" r="3" fill="#ffffff" opacity=".7"/>
+    </symbol>
+    <symbol id="tv" viewBox="0 0 140 110">
+      <rect x="4" y="4" width="132" height="82" rx="8" fill="#12261f"/>
+      <rect x="11" y="11" width="118" height="68" rx="4" fill="var(--s, #8cc3e3)"/>
+      <path d="M55 86 L48 104 H92 L85 86 Z" fill="#12261f"/>
+    </symbol>
+    <symbol id="shoe" viewBox="0 0 140 70">
+      <path d="M6 50 C6 30 14 22 28 20 L52 16 C58 30 74 36 96 36 L118 38 C132 40 136 48 136 54 L136 56 L6 56 Z" fill="var(--b, #d9534a)"/>
+      <rect x="4" y="54" width="134" height="10" rx="5" fill="#ffffff" stroke="#12261f" stroke-width="2"/>
+      <path d="M58 24 L66 34 M66 22 L74 32 M74 22 L80 32" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="tee" viewBox="0 0 110 100">
+      <path d="M34 6 L10 16 L2 40 L20 46 L24 38 L24 96 L86 96 L86 38 L90 46 L108 40 L100 16 L76 6 C70 18 62 22 55 22 C48 22 40 18 34 6 Z" fill="var(--b, #2f6f9f)"/>
+    </symbol>
+    <symbol id="mascot" viewBox="0 0 120 140">
+      <rect x="70" y="86" width="16" height="50" rx="8" transform="rotate(-35 78 111)" fill="#12261f"/>
+      <circle cx="52" cy="52" r="46" fill="#e8a33d"/>
+      <circle cx="52" cy="52" r="34" fill="#fff8e6"/>
+      <circle cx="40" cy="48" r="5" fill="#12261f"/><circle cx="64" cy="48" r="5" fill="#12261f"/>
+      <circle cx="42" cy="46" r="1.6" fill="#fff"/><circle cx="66" cy="46" r="1.6" fill="#fff"/>
+      <path d="M40 64 Q52 74 64 64" stroke="#12261f" stroke-width="4" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="shop" viewBox="0 0 180 170">
+      <rect x="10" y="50" width="160" height="116" rx="6" fill="#ffffff" stroke="#12261f" stroke-width="3"/>
+      <path d="M4 50 L20 14 H160 L176 50 Z" fill="var(--a, #e8a33d)" stroke="#12261f" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M4 50 Q18 64 32 50 Q46 64 60 50 Q74 64 88 50 Q102 64 116 50 Q130 64 144 50 Q158 64 176 50" fill="var(--a, #e8a33d)" stroke="#12261f" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="24" y="82" width="56" height="44" rx="4" fill="#dcefe6" stroke="#12261f" stroke-width="3"/>
+      <rect x="104" y="82" width="48" height="84" rx="4" fill="var(--a, #e8a33d)" stroke="#12261f" stroke-width="3"/>
+      <circle cx="142" cy="126" r="3" fill="#12261f"/>
+    </symbol>
+    <symbol id="tick" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#1e6b52"/><path d="M11 21 L17 27 L29 14" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="cross" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#d9534a"/><path d="M13 13 L27 27 M27 13 L13 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- 1 COVER -->
+<div class="page split" style="background: var(--ink); color: white;">
+  <div>
+    <p style="color: var(--sun); font-size: 17pt; font-weight: 700; margin-bottom: 6mm;">A story about Scruge</p>
+    <h1 style="color: white;">The Same&#8209;Toy Detective</h1>
+    <p class="big" style="color: #cfe0d7; margin-top: 8mm; max-width: 115mm;">How we find the exact same thing in other shops, explained for a five&#8209;year&#8209;old.</p>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 420 340">
+      <circle cx="210" cy="180" r="150" fill="#1f3d33"/>
+      <use href="#shop" x="20" y="150" width="130" height="122" style="--a:#8cc3e3"/>
+      <use href="#shop" x="270" y="150" width="130" height="122" style="--a:#c95b8c"/>
+      <use href="#mascot" x="140" y="40" width="150" height="175"/>
+      <use href="#phone" x="190" y="225" width="40" height="70" style="--s:#9ed3b4"/>
+      <circle cx="80" cy="70" r="5" fill="#f6cd6a"/><circle cx="360" cy="90" r="7" fill="#f6cd6a"/><circle cx="330" cy="40" r="4" fill="#9ed3b4"/>
+    </svg>
+  </div>
+</div>
+
+<!-- 2 YOU HAVE A TOY -->
+<div class="page split">
+  <div>
+    <h2>You found a toy you really like.</h2>
+    <p>It is in a box from one shop called <b>Amazon</b>.</p>
+    <p>You wonder: <span class="hl">do other shops have the exact same one?</span></p>
+    <p class="soft">Scruge is a detective that finds out for you.</p>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 420 330">
+      <ellipse cx="210" cy="300" rx="170" ry="16" fill="#dbe7df"/>
+      <path d="M90 120 L210 80 L330 120 L330 290 L210 310 L90 290 Z" fill="#e2b979"/>
+      <path d="M210 160 L210 310 L330 290 L330 120 Z" fill="#cf9f5c"/>
+      <path d="M90 120 L210 160 L330 120 L210 80 Z" fill="#f0cf96"/>
+      <path d="M150 100 L270 140" stroke="#cf9f5c" stroke-width="10"/>
+      <use href="#phone" x="172" y="20" width="76" height="134" style="--s:#9ed3b4"/>
+      <path d="M120 250 Q150 262 180 250" stroke="#12261f" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M170 248 L184 250 L176 238" stroke="#12261f" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="108" y="230" font-size="26" font-weight="800" fill="#12261f">amazon</text>
+    </svg>
+  </div>
+  <div class="pn">2</div>
+</div>
+
+<!-- 3 READ THE BOX -->
+<div class="page split">
+  <div>
+    <h2>First, we read the box very carefully.</h2>
+    <p>We write down three things:</p>
+    <p><b>1.</b> Who made it.<br><b>2.</b> What it is called.<br><b>3.</b> Its <span class="hl">special thing</span>.</p>
+    <p class="soft">These three things are our clues.</p>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 420 380">
+      <rect x="40" y="30" width="340" height="270" rx="22" fill="#ffffff" stroke="#12261f" stroke-width="4"/>
+      <circle cx="80" cy="30" r="14" fill="#f1f6f2" stroke="#12261f" stroke-width="4"/>
+      <g font-size="22" font-weight="700">
+        <text x="72" y="98" fill="#4f6259">Who made it?</text>
+        <rect x="230" y="72" width="120" height="38" rx="19" fill="#9ed3b4"/><text x="290" y="99" text-anchor="middle" fill="#12261f">OnePlus</text>
+        <text x="72" y="168" fill="#4f6259">What is it called?</text>
+        <rect x="246" y="142" width="104" height="38" rx="19" fill="#8cc3e3"/><text x="298" y="169" text-anchor="middle" fill="#12261f">Nord CE6</text>
+        <text x="72" y="238" fill="#4f6259">Special thing?</text>
+        <rect x="216" y="212" width="134" height="38" rx="19" fill="#f6cd6a"/><text x="283" y="239" text-anchor="middle" fill="#12261f">8 + 128 GB</text>
+      </g>
+      <line x1="72" y1="128" x2="350" y2="128" stroke="#e4ece7" stroke-width="3"/>
+      <line x1="72" y1="198" x2="350" y2="198" stroke="#e4ece7" stroke-width="3"/>
+      <use href="#mascot" x="318" y="268" width="92" height="107"/>
+    </svg>
+  </div>
+  <div class="pn">3</div>
+</div>
+
+<!-- 4 SPECIAL THING -->
+<div class="page stack">
+  <div>
+    <h2>Every kind of toy has its own special thing.</h2>
+    <p style="max-width: 220mm;">It is the clue that tells two look-alike toys apart.</p>
+  </div>
+  <div class="tiles">
+    <div class="tile">
+      <svg viewBox="0 0 120 120"><use href="#phone" x="28" y="4" width="64" height="112" style="--s:#9ed3b4"/><text x="60" y="66" text-anchor="middle" font-size="18" font-weight="800" fill="#12261f">8+128</text></svg>
+      <h3>Phones</h3><p>How much it can remember</p>
+    </div>
+    <div class="tile">
+      <svg viewBox="0 0 150 120"><use href="#tv" x="5" y="4" width="140" height="110"/><path d="M18 24 H132" stroke="#e8a33d" stroke-width="5" stroke-linecap="round"/><path d="M18 18 V30 M132 18 V30" stroke="#e8a33d" stroke-width="5" stroke-linecap="round"/><text x="75" y="64" text-anchor="middle" font-size="22" font-weight="800" fill="#12261f">55 inch</text></svg>
+      <h3>TVs</h3><p>How big the screen is</p>
+    </div>
+    <div class="tile">
+      <svg viewBox="0 0 150 120"><use href="#shoe" x="5" y="40" width="140" height="70" style="--b:#d9534a"/><circle cx="40" cy="22" r="12" fill="#d9534a"/><circle cx="75" cy="22" r="12" fill="#2f6f9f" opacity=".25"/><circle cx="110" cy="22" r="12" fill="#1e6b52" opacity=".25"/></svg>
+      <h3>Shoes</h3><p>What colour they are</p>
+    </div>
+    <div class="tile">
+      <svg viewBox="0 0 150 120"><use href="#tee" x="25" y="12" width="100" height="92" style="--b:#2f6f9f"/><circle cx="75" cy="56" r="10" fill="#ffffff" opacity=".85"/></svg>
+      <h3>T&#8209;shirts</h3><p>What colour they are</p>
+    </div>
+  </div>
+  <div class="pn">4</div>
+</div>
+
+<!-- 5 VISIT THE SHOPS -->
+<div class="page split">
+  <div>
+    <h2>Then we visit the other shops.</h2>
+    <p>For phones and TVs we go to <b>Flipkart</b> and <b>Croma</b>. For shoes and t&#8209;shirts we go to <b>Flipkart</b> and <b>Myntra</b>.</p>
+    <p>At each shop we ask: <span class="hl">"Do you have this one?"</span></p>
+    <p class="soft">We visit them all at the same time, so it's quick.</p>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 440 330">
+      <ellipse cx="220" cy="300" rx="200" ry="14" fill="#dbe7df"/>
+      <use href="#shop" x="10" y="130" width="140" height="132" style="--a:#e8a33d"/>
+      <use href="#shop" x="150" y="130" width="140" height="132" style="--a:#8cc3e3"/>
+      <use href="#shop" x="290" y="130" width="140" height="132" style="--a:#c95b8c"/>
+      <g font-size="17" font-weight="800" fill="#12261f" text-anchor="middle"><text x="80" y="292">Flipkart</text><text x="220" y="292">Croma</text><text x="360" y="292">Myntra</text></g>
+      <path d="M150 20 H330 Q350 20 350 40 V86 Q350 106 330 106 H230 L206 128 L210 106 H150 Q130 106 130 86 V40 Q130 20 150 20 Z" fill="#ffffff" stroke="#12261f" stroke-width="4"/>
+      <text x="240" y="58" text-anchor="middle" font-size="22" font-weight="800" fill="#12261f">Do you have</text>
+      <text x="240" y="86" text-anchor="middle" font-size="22" font-weight="800" fill="#12261f">this one?</text>
+      <use href="#mascot" x="20" y="10" width="100" height="117"/>
+    </svg>
+  </div>
+  <div class="pn">5</div>
+</div>
+
+<!-- 6 LOTS OF TOYS -->
+<div class="page split">
+  <div>
+    <h2>The shop shows us lots and lots of toys.</h2>
+    <p>Many of them <span class="hl">look</span> the same. But most of them are not.</p>
+    <p class="soft">One is made by someone else. One is a bigger, newer version. One remembers less. One is a different colour.</p>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 440 320">
+      <rect x="10" y="230" width="420" height="16" rx="6" fill="#cf9f5c"/>
+      <use href="#phone" x="22" y="120" width="56" height="104" style="--s:#9ed3b4"/>
+      <use href="#phone" x="92" y="104" width="64" height="120" style="--s:#9ed3b4"/>
+      <use href="#phone" x="172" y="120" width="56" height="104" style="--s:#f2a7b8"/>
+      <use href="#phone" x="242" y="120" width="56" height="104" style="--s:#9ed3b4"/>
+      <use href="#phone" x="312" y="120" width="56" height="104" style="--b:#2f6f9f; --s:#8cc3e3"/>
+      <use href="#phone" x="382" y="128" width="48" height="96" style="--s:#9ed3b4"/>
+      <g font-size="15" font-weight="700" fill="#4f6259" text-anchor="middle">
+        <text x="50" y="272">same?</text><text x="124" y="272">bigger</text><text x="200" y="272">pink</text>
+        <text x="270" y="272">less</text><text x="340" y="272">other</text><text x="406" y="272">smaller</text>
+        <text x="270" y="290">memory</text><text x="340" y="290">maker</text>
+      </g>
+      <text x="124" y="160" text-anchor="middle" font-size="16" font-weight="800" fill="#12261f">PRO</text>
+      <text x="270" y="178" text-anchor="middle" font-size="14" font-weight="800" fill="#12261f">6+128</text>
+      <text x="236" y="70" font-size="44" font-weight="800" fill="#e8a33d">?</text>
+      <text x="170" y="70" font-size="34" font-weight="800" fill="#8cc3e3">?</text>
+    </svg>
+  </div>
+  <div class="pn">6</div>
+</div>
+
+<!-- 7 THE GAME -->
+<div class="page split">
+  <div>
+    <h2>So we play a game called "Is it the same?"</h2>
+    <p>We check every toy, one clue at a time.</p>
+    <p><span class="hl">Every answer has to be YES.</span> If even one answer is no, that toy is out.</p>
+  </div>
+  <div class="check">
+    <div class="q"><svg viewBox="0 0 40 40" width="16mm"><use href="#tick" width="40" height="40"/></svg><div><b>Same maker?</b><small>OnePlus and OnePlus</small></div><span class="yes">YES</span></div>
+    <div class="q"><svg viewBox="0 0 40 40" width="16mm"><use href="#tick" width="40" height="40"/></svg><div><b>Same name?</b><small>Nord CE6 Lite and Nord CE6 Lite</small></div><span class="yes">YES</span></div>
+    <div class="q"><svg viewBox="0 0 40 40" width="16mm"><use href="#tick" width="40" height="40"/></svg><div><b>Same special thing?</b><small>8 + 128 GB and 8 + 128 GB</small></div><span class="yes">YES</span></div>
+    <div style="display:flex; align-items:center; gap:5mm; padding: 2mm 4mm;">
+      <svg viewBox="0 0 120 140" width="22mm"><use href="#mascot" width="120" height="140"/></svg>
+      <p style="margin:0; font-size: 22pt; font-weight: 800;">It's the same toy!</p>
+    </div>
+  </div>
+  <div class="pn">7</div>
+</div>
+
+<!-- 8 ALMOST THE SAME -->
+<div class="page stack">
+  <div>
+    <h2>Almost the same is not the same.</h2>
+    <p style="max-width: 230mm;">A tiny difference makes it a different toy. So we are very, very picky.</p>
+  </div>
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8mm;">
+    <div class="tile" style="padding: 7mm;">
+      <svg viewBox="0 0 300 160" style="height: 62mm;">
+        <use href="#phone" x="40" y="10" width="64" height="112" style="--s:#8cc3e3"/>
+        <use href="#phone" x="186" y="2" width="76" height="132" style="--s:#8cc3e3"/>
+        <text x="72" y="156" text-anchor="middle" font-size="20" font-weight="800" fill="#12261f">iPhone 16</text>
+        <text x="224" y="156" text-anchor="middle" font-size="20" font-weight="800" fill="#12261f">iPhone 16 Plus</text>
+        <use href="#cross" x="128" y="46" width="40" height="40"/>
+      </svg>
+      <h3>The word "Plus" makes it a bigger phone.</h3>
+    </div>
+    <div class="tile" style="padding: 7mm;">
+      <svg viewBox="0 0 300 160" style="height: 62mm;">
+        <use href="#shoe" x="4" y="50" width="120" height="60" style="--b:#d9534a"/>
+        <use href="#shoe" x="176" y="50" width="120" height="60" style="--b:#2f6f9f"/>
+        <text x="64" y="140" text-anchor="middle" font-size="20" font-weight="800" fill="#12261f">red</text>
+        <text x="236" y="140" text-anchor="middle" font-size="20" font-weight="800" fill="#12261f">blue</text>
+        <use href="#cross" x="130" y="58" width="40" height="40"/>
+      </svg>
+      <h3>Same shoe, different colour: not the same.</h3>
+    </div>
+  </div>
+  <div class="pn">8</div>
+</div>
+
+<!-- 9 TAKE IT HOME -->
+<div class="page stack" style="grid-template-rows: auto auto auto;">
+  <div>
+    <h2>Last question: can you take it home today?</h2>
+  </div>
+  <div class="outcomes">
+    <div class="out">
+      <svg viewBox="0 0 200 130">
+        <rect x="10" y="10" width="180" height="110" rx="10" fill="#e1efe8"/>
+        <rect x="20" y="92" width="160" height="10" rx="4" fill="#cf9f5c"/>
+        <use href="#phone" x="78" y="20" width="40" height="72" style="--s:#9ed3b4"/>
+        <use href="#tick" x="150" y="18" width="32" height="32"/>
+      </svg>
+      <h3><span class="dot" style="background:#1e6b52"></span>In stock</h3>
+      <p>The shop has it and you can buy it. We show you where.</p>
+    </div>
+    <div class="out">
+      <svg viewBox="0 0 200 130">
+        <rect x="10" y="10" width="180" height="110" rx="10" fill="#fbefd9"/>
+        <rect x="20" y="92" width="160" height="10" rx="4" fill="#cf9f5c"/>
+        <rect x="74" y="20" width="48" height="72" rx="10" fill="none" stroke="#9a5d0c" stroke-width="4" stroke-dasharray="8 7"/>
+        <text x="98" y="64" text-anchor="middle" font-size="22" font-weight="800" fill="#9a5d0c">?</text>
+      </svg>
+      <h3><span class="dot" style="border:3px solid #9a5d0c; background: linear-gradient(90deg,#9a5d0c 50%, transparent 50%)"></span>Out of stock</h3>
+      <p>The shop sells it, but the shelf is empty right now.</p>
+    </div>
+    <div class="out">
+      <svg viewBox="0 0 200 130">
+        <rect x="10" y="10" width="180" height="110" rx="10" fill="#eef1ef"/>
+        <use href="#shop" x="60" y="18" width="80" height="76" style="--a:#d3dad5"/>
+        <rect x="20" y="96" width="160" height="10" rx="4" fill="#d3dad5"/>
+        <text x="100" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="#4f6259">no toy like this here</text>
+      </svg>
+      <h3><span class="dot" style="border:3px solid #a9b6af"></span>Not listed</h3>
+      <p>None of this shop's toys passed the game. They don't sell it.</p>
+    </div>
+  </div>
+  <p class="soft" style="font-size: 15pt; max-width: 240mm; margin: 0;">And if a shop's door is locked (the website doesn't answer), we say <b>"couldn't check"</b>. We never pretend that means they don't sell it.</p>
+  <div class="pn">9</div>
+</div>
+
+<!-- 10 RECAP -->
+<div class="page stack">
+  <div>
+    <h2>That's the whole trick!</h2>
+    <p style="max-width: 230mm;">Every time you give Scruge a link, it does these four things, in this order:</p>
+  </div>
+  <div class="steps">
+    <div class="stp"><div class="n">1</div>
+      <svg viewBox="0 0 120 100"><rect x="20" y="10" width="80" height="80" rx="10" fill="#ffffff" stroke="#12261f" stroke-width="4"/><path d="M34 34 H86 M34 50 H86 M34 66 H70" stroke="#e8a33d" stroke-width="6" stroke-linecap="round"/></svg>
+      <h3>Read the box</h3></div>
+    <div class="stp"><div class="n">2</div>
+      <svg viewBox="0 0 180 170"><use href="#shop" width="180" height="170" style="--a:#8cc3e3"/></svg>
+      <h3>Visit the shops</h3></div>
+    <div class="stp"><div class="n">3</div>
+      <svg viewBox="0 0 120 100"><use href="#tick" x="10" y="8" width="40" height="40"/><use href="#tick" x="70" y="8" width="40" height="40"/><use href="#tick" x="40" y="54" width="40" height="40"/></svg>
+      <h3>Play "Is it the same?"</h3></div>
+    <div class="stp"><div class="n">4</div>
+      <svg viewBox="0 0 120 100"><rect x="10" y="70" width="100" height="10" rx="4" fill="#cf9f5c"/><use href="#phone" x="44" y="6" width="34" height="62" style="--s:#9ed3b4"/></svg>
+      <h3>Check the shelf</h3></div>
+  </div>
+  <div class="pn">10</div>
+</div>
+
+</body>
+</html>

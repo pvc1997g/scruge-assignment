@@ -1,0 +1,21 @@
+# One command:  docker compose up --build
+# Then open:    http://localhost:3005   (change with PORT=xxxx docker compose up --build)
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # Internal only: the frontend proxies /api/* to it over the compose network.
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        BACKEND_URL: http://backend:8000
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3005}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy

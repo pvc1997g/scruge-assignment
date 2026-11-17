@@ -6,7 +6,7 @@ import "./globals.css";
 const schibsted = Schibsted_Grotesk({ variable: "--font-schibsted", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 export const metadata: Metadata = {
-  title: "Sameshelf",
+  title: "Scruge",
   description: "Paste an Amazon link and see whether Flipkart, Croma or Myntra sell the exact same product.",
 };
 
@@ -20,7 +20,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span aria-hidden className="grid h-6 w-6 place-items-center rounded-[5px] bg-ink">
                 <span className="h-2.5 w-2.5 rounded-full bg-marigold" />
               </span>
-              Sameshelf
+              Scruge
             </Link>
             <Link href="/how-it-works" className="text-sm text-muted hover:text-ink underline-offset-4 hover:underline">
               How matching works
