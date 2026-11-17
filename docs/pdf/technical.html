@@ -78,6 +78,9 @@
   td { border-bottom: 1px solid var(--rule); padding: 1.6mm 3mm 1.6mm 0; vertical-align: top; }
   td:first-child { color: var(--ink); font-weight: 600; }
 
+  table.dense { font-size: 8.1pt; margin: 2mm 0 3mm; }
+  table.dense td { padding: 1.15mm 3mm 1.15mm 0; }
+  table.dense th { padding: 1.2mm 3mm 1.2mm 0; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
   .card { border: 1px solid var(--rule); border-radius: 2mm; padding: 4mm; break-inside: avoid; background: white; }
@@ -306,7 +309,7 @@
 <section>
   <div class="section-no">3 &nbsp;Reading the Amazon page</div>
   <h2>From a marketing title to comparable facts</h2>
-  <p>Amazon titles are written to sell, not to be parsed: <em>"OnePlus Nord CE6 Lite | 8GB+128GB | Vivid Mint | Segment's Fastest Dimensity 7400 Apex Processor | 7000mAh Battery…"</em>. So the backend prefers structured data. Amazon's spec tables come in at least four layouts (product overview, tech specs, detail bullets, fashion "product facts"); all are merged into one key-value map with keys like <code>brand</code>, <code>model name</code>, <code>colour</code> and <code>item model number</code>. The title fills gaps, and its first word is the fallback brand.</p>
+  <p>Amazon titles are written to sell, not to be parsed: <em>"OnePlus Nord CE6 Lite | 8GB+128GB | Vivid Mint | Segment's Fastest Dimensity 7400 Apex Processor | 7000mAh Battery…"</em>. So the backend prefers structured data. Amazon's spec tables come in at least four layouts (product overview, tech specs, detail bullets, fashion "product facts"); all are merged into one key-value map with keys like <code>brand</code>, <code>model name</code>, <code>colour</code> and <code>item model number</code>. The title fills any gaps.</p>
 
   <h3>Category detection, in order</h3>
   <ol>
@@ -314,10 +317,10 @@
     <li><strong>Spec-table evidence</strong>: a phone operating system (iOS, Android, One UI…) plus storage or SIM details. This rescued a real page titled just "iPhone Duo (512 GB) - Night Sky" with no breadcrumbs.</li>
     <li><strong>Title words</strong>: "smartphone", "mobile phone", "iPhone", "TV" with a size, "polo", "jersey", "sneakers"…</li>
   </ol>
-  <p>Accessory words ("case", "cover", "tempered", "compatible with"…) only guard the title check, so a replacement iPhone screen is not mistaken for an iPhone, while a real phone whose title boasts "6500mAh + 45W Fast Charger" still counts. Anything outside the four categories gets a clear <code>422</code> message.</p>
+  <p>Accessory words ("case", "cover", "compatible with"…) only guard the title check: a replacement iPhone screen is rejected, but a phone whose title boasts "45W Fast Charger" still counts. Other categories get a clear <code>422</code>.</p>
 
   <h3>Normalisation: making facts comparable</h3>
-  <table>
+  <table class="dense">
     <tr><th style="width:24%">Fact</th><th style="width:36%">Raw text seen</th><th>Normalised to</th></tr>
     <tr><td>Memory</td><td>"8GB+128GB", "8 GB RAM | 128 GB ROM", "(12GB RAM, 256GB)"</td><td><code>ram_gb</code>, <code>storage_gb</code>. RAM above 32 GB is discarded (Amazon sometimes puts storage in the RAM field on iPhones).</td></tr>
     <tr><td>Screen</td><td>"139 cms (55 inches)", "108 cm (43 Inch)", "109.22 cm"</td><td>Whole inches (cm ÷ 2.54), compared within ±1 inch.</td></tr>
@@ -325,9 +328,11 @@
     <tr><td>Brand</td><td>"SAMSUNG", "Visit the Samsung Store", "Redmi"</td><td>Lower-case alphanumerics with aliases (redmi, poco → xiaomi).</td></tr>
     <tr><td>TV model</td><td>"UA55UE85AHULXL", "K-55S25BM2"</td><td>Full code plus series without size and region suffix: <code>ue85ah</code>, <code>s25bm2</code>.</td></tr>
     <tr><td>Wearer</td><td>"Department: Men", "Unisex", "Older Kids'"</td><td>men / women / kids / unisex. Unisex is compatible with men and women, never kids.</td></tr>
+    <tr><td>Price</td><td>Buy box "₹779", plus carousel, M.R.P. and EMI prices on the same page</td><td>Only the buy-box price, from known price blocks tried in order (empty ones skipped); Amazon's embedded <code>priceAmount</code> as a fallback.</td></tr>
+    <tr><td>Stock</td><td>"In stock", "Only 3 left", "Available to ship in 1-2 days", "Currently unavailable"</td><td>In stock / out of stock / unknown. Unavailable phrases are checked first ("…back in stock" is still unavailable).</td></tr>
   </table>
 
-  <div class="callout warm"><p><strong>Why not just compare titles?</strong> Because the difference between two products is often one short token. "Galaxy S24" and "Galaxy S24 Ultra" share 90% of their characters; "8GB RAM" and "6GB RAM" differ by one digit. String similarity rates these as near-identical. Extracting facts first lets the matcher compare the things that actually distinguish products.</p></div>
+  <div class="callout warm"><p><strong>Why not just compare titles?</strong> "Galaxy S24" and "Galaxy S24 Ultra" share 90% of their characters, and "8GB RAM" vs "6GB RAM" differ by one digit. String similarity calls these near-identical; comparing extracted facts does not.</p></div>
 </section>
 
 <!-- ============================================================ 4 STORES -->
@@ -482,9 +487,9 @@ best = max(matches, key=rank)</pre>
 <section>
   <div class="section-no">8 &nbsp;Evaluation, limits and next steps</div>
   <h2>Tested on real links</h2>
-  <p>A fixed set of 40 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, 80 store checks in all. It includes deliberately awkward cases: a page without breadcrumbs, a phone title that mentions a charger, adidas colour codes, a women's tee with a one-word title, a licensed jersey and an unbranded knock-off. Every result was reviewed by hand.</p>
+  <p>A fixed set of 40 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, 80 store checks in all. It includes deliberately awkward cases: a page without breadcrumbs, a phone title that mentions a charger, adidas colour codes, a women's tee with a one-word title, a licensed jersey and an unbranded knock-off. Every result was reviewed by hand; stock states change daily.</p>
 
-  <table>
+  <table class="dense">
     <tr><th style="width:24%">Category</th><th style="width:12%">Links</th><th style="width:34%">Same product found</th><th>Not listed (each reviewed)</th></tr>
     <tr><td>Smartphones</td><td>10</td><td>14 of 20 checks</td><td>6, e.g. Croma only had the S22 and S26, not the S24</td></tr>
     <tr><td>Televisions</td><td>7</td><td>6 of 14</td><td>8, e.g. Flipkart sells Acer's Ultra I series, not the Ultra V</td></tr>
@@ -493,7 +498,7 @@ best = max(matches, key=rank)</pre>
   </table>
 
   <h3>What testing caught, and what changed</h3>
-  <table style="font-size:8.2pt">
+  <table class="dense">
     <tr><th style="width:38%">Found by testing new links</th><th>Fix</th></tr>
     <tr><td>Apparel matched on weak facts: any black cotton tee of the brand passed.</td><td>Style codes first; facts from all three spec tables; "type" and "material" no longer count as evidence; default-only matches labelled "possible".</td></tr>
     <tr><td>Oversized tee matched a slim-fit henley.</td><td>When a listing contradicts itself, the title wins over default spec fields.</td></tr>
@@ -501,8 +506,8 @@ best = max(matches, key=rank)</pre>
     <tr><td>Skechers Go Walk Flex matched the Waterproof Slip-Ins version.</td><td>Version words are read from the whole title.</td></tr>
     <tr><td>A phone was rejected because its title said "45W Fast Charger".</td><td>Breadcrumbs and specs outrank accessory words.</td></tr>
     <tr><td>Tecno "POP X" would have matched "POVA X".</td><td>Every series word must match, not just numbers.</td></tr>
+    <tr><td>A t-shirt showed no Amazon price; "Available to ship" read as out of stock.</td><td>Read only the buy-box price, never "the first price on the page"; parse Amazon's stock phrases explicitly.</td></tr>
   </table>
-  <p class="small muted">Stock states reflect the stores at the time of the run and change daily.</p>
 
   <div class="grid2" style="margin-top: 4mm;">
     <div>
