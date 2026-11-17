@@ -17,7 +17,7 @@ import re
 from .models import Category, Listing, MatchVerdict
 from .normalize import (
     VARIANT_WORDS, apparel_facts, brands_match, codes_overlap, colours_match, genders_compatible,
-    is_distinguishing, model_codes, model_tokens,
+    core_style_code, is_distinguishing, model_codes, model_tokens, style_codes_match, tokens,
 )
 
 
@@ -54,6 +54,11 @@ def _model_check_strict(src: Listing, cand: Listing, reasons: list[str]) -> tupl
             return False, 0.0
         reasons.append(f"model {' '.join(st)} matches")
         return True, 1.0
+    # The series name must be there too: "POP X" vs "POVA X" share only the variant word "x".
+    name_missing = [t for t in st if t not in sd and t not in ct]
+    if name_missing:
+        reasons.append(f"different model name (missing {name_missing}): {' '.join(st)} vs {' '.join(ct)}")
+        return False, 0.0
     missing, extra = sd - cd, cd - sd
     if missing or extra:
         bits = []
@@ -102,10 +107,15 @@ SNEAKER_VARIANTS = VARIANT_WORDS | set(
 )
 
 
+FULL_TITLE_VARIANTS = {"slip", "ins", "waterproof", "wp", "gtx", "goretex", "easyon", "flyease"}
+
+
 def _style_code_hit(src: Listing, cand: Listing) -> bool:
-    if not src.model_number:
+    code = core_style_code(src.model_number)
+    if not code:
         return False
-    code = re.sub(r"[^a-z0-9]", "", src.model_number.lower())
+    if style_codes_match(src.model_number, cand.model_number):
+        return True
     hay = re.sub(r"[^a-z0-9]", "", " ".join([cand.title, cand.extra.get("description", "")]).lower())
     return len(code) >= 6 and code in hay
 
@@ -122,53 +132,125 @@ def _model_check_sneakers(src: Listing, cand: Listing, reasons: list[str]) -> tu
         return False, 0.0
     sd = {t for t in st if is_distinguishing(t) or t in SNEAKER_VARIANTS}
     cd = {t for t in ct if is_distinguishing(t) or t in SNEAKER_VARIANTS}
+    # Construction variants often sit after a dash ("GO WALK FLEX - Waterproof Slip-Ins"), outside
+    # the model name we compare, so look for them across the whole title.
+    sd |= set(tokens(src.title)) & FULL_TITLE_VARIANTS
+    cd |= set(tokens(cand.title)) & FULL_TITLE_VARIANTS
     if sd != cd:
         reasons.append(f"different model version ({sorted(sd) or '-'} vs {sorted(cd) or '-'})")
         return False, 0.0
-    sim = _dice(st, ct)
-    if sim < 0.6:
-        reasons.append(f"model name too different ({sim:.0%} similar): '{' '.join(st)}' vs '{' '.join(ct)}'")
+    # Every model word must match both ways: "Court Vision Low Suede" is not "Court Vision Low Next Nature",
+    # and "Smash Comfort" is not "Smashic Comfort". Generic words (running shoes, for men) are already gone.
+    missing, extra = set(st) - set(ct), set(ct) - set(st)
+    if missing or extra:
+        bits = ([f"missing {sorted(missing)}"] if missing else []) + ([f"extra {sorted(extra)}"] if extra else [])
+        reasons.append(f"different model ({', '.join(bits)}): '{' '.join(st)}' vs '{' '.join(ct)}'")
         return False, 0.0
-    reasons.append(f"model '{' '.join(st)}' matches ({sim:.0%})")
-    return True, sim
+    reasons.append(f"model '{' '.join(st)}' matches")
+    return True, 1.0
+
+
+def garment_facts(listing: Listing) -> dict[str, str]:
+    """Facts from the spec table, with the title winning where both state a fact. Spec fields are
+    often left at defaults ("Fit: Regular" on a shirt titled "Oversized Fit"), while title words
+    are chosen deliberately for that product."""
+    return {**listing.extra.get("facts", {}), **apparel_facts(listing.title, listing.brand)}
+
+
+STRONG_FACTS = ("pattern", "fit", "sleeve", "neck")
+# What a plain garment of each type is by default: agreeing on these says little.
+DEFAULT_FACTS = {
+    "tshirt": {"pattern": "solid", "fit": "regular", "sleeve": "short", "neck": "round"},
+    "polo": {"pattern": "solid", "fit": "regular", "sleeve": "short", "neck": "collar"},
+}
+_NAME_NOISE = {"printed", "print", "solid", "cotton", "polyester", "regular", "slim", "fit", "pure", "half", "full",
+               "sleeve", "sleeves", "neck", "round", "crew", "collar", "brand", "logo", "casual", "short", "long"}
+# Descriptive words that are not a product-line name.
+_LINE_NOISE = _NAME_NOISE | set("""
+    oversized relaxed fitted classic comfortable comfort stylish rich soft premium wear everyday daily regular
+    side branding detail details detailed embroidered applique pocket pockets drop shoulder sports sport training gym
+    athleisure performance dri fit polycotton blend blended organic knitted knit ultra antiviral new graphic typography
+    tipped contrast placket band mandarin henley v crew tee tees top shirt shirts tshirt tshirts polo polos jersey
+    jerseys mens womens boys girls kids adult adults for with and the of in a an quick dry lightweight breathable
+    stretch durable trendy latest fashion basic basics stripe striped colourblock colorblock textured self design
+""".split())
+
+
+def _line_words(listing: Listing) -> set[str]:
+    toks = model_tokens(listing.title, listing.brand, cut_at_paren=False)
+    # Numbers count only as line ids like Levi's "025"; "100" (% cotton) and years don't.
+    return {t for t in toks if t not in _LINE_NOISE and len(t) >= 3
+            and not (t.isdigit() and (t == "100" or len(t) == 4))}
 
 
 def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tuple[bool, float]:
-    """Clothes rarely have model names, so 'model' = garment type + pattern + fit + sleeve + neck."""
-    if _style_code_hit(src, cand):
-        reasons.append(f"style code {src.model_number} found")
+    """Clothes rarely have model names. Evidence, strongest first:
+      1. the manufacturer style code (Amazon 'style number' == store 'style code')
+      2. garment facts from both spec tables: pattern, fit, sleeve, neck (+ material)
+    Any known fact that differs rejects. Weak facts (it's a t-shirt, it's cotton, a polo has a
+    collar) are true of half the catalogue, so they never count towards a match on their own."""
+    if style_codes_match(src.model_number, cand.model_number) or _style_code_hit(src, cand):
+        reasons.append(f"style code {src.model_number} matches")
         return True, 1.0
-    sf = apparel_facts(src.title, src.brand)
-    cf = apparel_facts(cand.title, cand.brand)
+
+    sf, cf = garment_facts(src), garment_facts(cand)
     if "type" in sf and "type" in cf and sf["type"] != cf["type"]:
         reasons.append(f"different garment ({sf['type']} vs {cf['type']})")
         return False, 0.0
-    agree = []
-    for k in ("pattern", "fit", "sleeve", "neck", "material"):
-        if k in sf and k in cf:
-            if sf[k] != cf[k]:
-                reasons.append(f"different {k} ({sf[k]} vs {cf[k]})")
-                return False, 0.0
-            agree.append(f"{k}={sf[k]}")
-    if sf.get("type") and cf.get("type"):
-        agree.insert(0, sf["type"])
+
+    strong: list[str] = []
+    for k in STRONG_FACTS + ("material",):
+        a, b = sf.get(k), cf.get(k)
+        if not a or not b:
+            continue
+        if k == "material" and "blend" in (a, b):
+            continue  # "cotton" vs "cotton blend" is too fuzzy across stores to decide anything
+        if a != b:
+            reasons.append(f"different {k} ({a} vs {b})")
+            return False, 0.0
+        implied = k == "neck" and a == "collar" and sf.get("type") == "polo"
+        if k in STRONG_FACTS and not implied:
+            strong.append(f"{k}={a}")
+
     st = model_tokens(src.title, src.brand, cut_at_paren=False)
     ct = model_tokens(cand.title, cand.brand, cut_at_paren=False)
     sim = _dice(st, ct)
     # Jerseys / licensed tees are identified by their name words (India T20, Real Madrid 25/26 Away).
-    shared_name = sorted(set(st) & set(ct) - {"printed", "print", "solid", "cotton", "polyester", "regular", "slim", "fit"})
-    if len(agree) < 2 and not (sim >= 0.45 and len(shared_name) >= 3):
-        reasons.append(f"too little detail to be sure it's the same garment ({', '.join(agree) or 'nothing comparable'})")
+    shared_name = sorted(set(st) & set(ct) - _NAME_NOISE)
+    named = sim >= 0.45 and len(shared_name) >= 3
+
+    if sf.get("type") == "jersey" and not named:
+        reasons.append(f"different or unknown jersey ({' '.join(st[:6]) or '?'} vs {' '.join(ct[:6]) or '?'})")
         return False, 0.0
-    if sf.get("type") == "jersey" and st and sim < 0.3:
-        reasons.append(f"different jersey ({' '.join(st[:6])} vs {' '.join(ct[:6])})")
+
+    # Named product lines must agree: Puma "Essential" polo is not Puma "Pique Tipping" polo.
+    sl, cl = _line_words(src), _line_words(cand)
+    if sl and cl and not (sl & cl):
+        reasons.append(f"different product line ({' '.join(sorted(sl))} vs {' '.join(sorted(cl))})")
         return False, 0.0
-    detail = ", ".join(agree) if agree else ""
-    if shared_name and sim >= 0.45:
-        detail = (detail + "; " if detail else "") + "name words: " + " ".join(shared_name[:6])
+
+    if len(strong) < 2 and not named:
+        have = ", ".join(strong) or "no detail in common"
+        reasons.append(f"not enough evidence it's the same garment ({have}; need 2 of pattern/fit/sleeve/neck)")
+        return False, 0.0
+
+    defaults = DEFAULT_FACTS.get(sf.get("type", ""), {})
+    distinctive = [s for s in strong if defaults.get(s.split("=")[0]) != s.split("=")[1]]
+    shared_line = sorted(sl & cl)
+
+    detail = ", ".join(([sf["type"]] if sf.get("type") else []) + strong)
+    if named:
+        detail += ("; " if detail else "") + "name words: " + " ".join(shared_name[:6])
+    elif shared_line:
+        detail += ("; " if detail else "") + "same line: " + " ".join(shared_line)
     reasons.append(f"same garment: {detail}")
-    # Apparel matches are inherently less certain than a model number, so cap the score.
-    return True, min(0.7, 0.3 + 0.1 * len(agree) + 0.3 * sim)
+
+    if not distinctive and not named and not shared_line:
+        # "Solid, short sleeve, round neck" describes nearly every plain tee of that brand and colour.
+        reasons.append("only basic details in common, so this is a possible match, not a confirmed one")
+        return True, 0.3
+    # Without a style code this is a "likely" match: score grows with the evidence but stays below 0.8.
+    return True, min(0.55, 0.12 * len(strong) + 0.1 * len(distinctive) + (0.25 if named or shared_line else 0) + 0.15 * sim)
 
 
 def match(src: Listing, cand: Listing) -> MatchVerdict:
@@ -236,5 +318,5 @@ def match(src: Listing, cand: Listing) -> MatchVerdict:
 
     score = min(1.0, 0.5 + 0.5 * sim)
     if cat == Category.APPAREL and not any("style code" in r for r in reasons):
-        score = min(score, 0.85)  # garment-facts match is less certain than a model number
+        score = min(score, 0.8)  # garment-facts match is less certain than a style code
     return MatchVerdict(True, round(score, 3), reasons)

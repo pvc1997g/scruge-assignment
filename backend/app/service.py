@@ -12,7 +12,8 @@ from . import http
 from .matcher import match, source_model_tokens
 from .models import PLATFORMS_BY_CATEGORY, Category, Listing, PlatformResult, Status
 from .normalize import (
-    apparel_facts, brands_match, codes_overlap, colour_words, colours_match, model_codes, model_tokens,
+    apparel_facts, brands_match, codes_overlap, colour_words, colours_match, genders_compatible,
+    model_codes, model_tokens,
 )
 from .sources import amazon, croma, flipkart, myntra
 
@@ -75,6 +76,18 @@ def build_queries(src: Listing, platform: str) -> list[str]:
 
 # ----------------------------------------------------------------------------- per platform
 
+def _apparel_prefilter(src: Listing, cand: Listing) -> bool:
+    """Worth opening this product page? Same brand, same kind of garment, compatible colour and wearer."""
+    if not (brands_match(src.brand, cand.brand) or brands_match(src.brand, cand.title.split()[0] if cand.title else "")):
+        return False
+    st, ct = apparel_facts(src.title, src.brand).get("type"), apparel_facts(cand.title, cand.brand).get("type")
+    if st and ct and st != ct:
+        return False
+    if colours_match(src.colour, cand.colour or cand.title)[0] is False:
+        return False
+    return genders_compatible(src.gender, cand.gender)
+
+
 def _quick_prefilter(src: Listing, cand: Listing) -> bool:
     """Cheap check before opening a product page: does brand+model already pass (ignoring colour)?"""
     probe = Listing(**{**cand.__dict__, "colour": src.colour})  # pretend colour matches
@@ -103,7 +116,12 @@ def check_platform(src: Listing, platform: str) -> PlatformResult:
 
         # Flipkart search cards don't show colour (fashion) or model codes (TVs): open the
         # product pages of plausible candidates to read those facts before matching.
-        if platform == "flipkart" and src.category != Category.SMARTPHONE:
+        if src.category == Category.APPAREL:
+            # Garment facts live on product pages (both stores): open the plausible ones first.
+            shortlist = [c for c in new if _apparel_prefilter(src, c)]
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                list(ex.map(_safe_enrich(adapter), shortlist[:MAX_ENRICH]))
+        elif platform == "flipkart" and src.category != Category.SMARTPHONE:
             if src.category == Category.TV:
                 src_codes = model_codes(" ".join(filter(None, [src.model_number or "", src.title])), src.screen_in)
                 # Same brand + size, and no *different* model code already visible in the title.
@@ -119,6 +137,10 @@ def check_platform(src: Listing, platform: str) -> PlatformResult:
         found_here = False
         for c in new:
             v = match(src, c)
+            if v.is_match and src.category == Category.APPAREL and not c.extra.get("facts"):
+                # Never accept a garment on its title alone: read its spec table, then judge again.
+                _safe_enrich(adapter)(c)
+                v = match(src, c)
             if not v.is_match:
                 rejections.append(f"{c.title[:70]} → {v.reasons[-1]}")
                 continue

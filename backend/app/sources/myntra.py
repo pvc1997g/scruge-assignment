@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 from .. import http
 from ..models import Listing
-from ..normalize import parse_gender
+from ..normalize import apparel_facts_from_specs, parse_gender
 
 BASE = "https://www.myntra.com"
 _warm = threading.Event()
@@ -61,4 +61,24 @@ def search(query: str) -> list[Listing]:
 
 
 def enrich(item: Listing) -> Listing:
+    """Open the product page for its spec table (fit, neck, sleeve, pattern, fabric) and live sizes."""
+    if item.extra.get("enriched"):
+        return item
+    _warm_up()
+    r, _ = http.get("myntra", item.url, retries=1)
+    m = re.search(r"window\.__myx\s*=\s*(\{.*?\})\s*</script>", r.text, re.S)
+    if not m:
+        return item
+    try:
+        pdp = (json.loads(m.group(1)).get("pdpData") or {})
+    except json.JSONDecodeError:
+        return item
+    attrs = pdp.get("articleAttributes") or {}
+    item.extra["specs"] = attrs
+    item.extra["facts"] = apparel_facts_from_specs(attrs)
+    item.colour = item.colour or pdp.get("baseColour")
+    sizes = pdp.get("sizes") or []
+    if sizes:
+        item.available = any(s.get("available") for s in sizes)
+    item.extra["enriched"] = True
     return item

@@ -240,7 +240,11 @@ function StoreRow({ r, amazonPrice, delay }: { r: PlatformResult; amazonPrice: n
               <div className="min-w-0">
                 <p className="text-[0.95rem] leading-snug line-clamp-2">{r.title}</p>
                 {r.confidence != null && r.confidence < 0.95 && (
-                  <p className="mt-0.5 text-xs text-muted">Likely match, {Math.round(r.confidence * 100)}% confidence</p>
+                  <p className={`mt-0.5 text-xs ${r.confidence < 0.75 ? "text-sold" : "text-muted"}`}>
+                    {r.confidence < 0.75
+                      ? `Possible match, ${Math.round(r.confidence * 100)}% confidence. Check the details before buying.`
+                      : `Likely match, ${Math.round(r.confidence * 100)}% confidence`}
+                  </p>
                 )}
               </div>
             </div>

@@ -6,6 +6,8 @@ https://www.amazon.in/dp/B0DQVK5X4K
 https://www.amazon.in/dp/B0GVYGLNH7
 # no breadcrumbs, no number in the model name
 https://www.amazon.in/dp/B0HJ9SDY16
+# phone title mentions an accessory ("45W Fast Charger")
+https://www.amazon.in/dp/B0GW5XR5J6
 # TVs
 https://www.amazon.in/dp/B0GTZ9TSDJ
 https://www.amazon.in/dp/B0GXV5313B
@@ -19,3 +21,32 @@ https://www.amazon.in/dp/B0F2FFQPYW
 https://www.amazon.in/dp/B0C4NZ57BR
 https://www.amazon.in/dp/B0DS64BDRK
 https://www.amazon.in/dp/B0G58TNQS2
+# --- added in the apparel deep-test round ---
+# Smartphones
+https://www.amazon.in/dp/B0H1WY466V
+https://www.amazon.in/dp/B0FFF9VPMN
+https://www.amazon.in/dp/B0H1BMBX9R
+https://www.amazon.in/dp/B0FFTFL9H1
+# TVs
+https://www.amazon.in/dp/B0GVJSTKS6
+https://www.amazon.in/dp/B0F3JKY28G
+https://www.amazon.in/dp/B0FLKF5V9Y
+# Sneakers (Revolution 7: stores now sell only Revolution 8, so "not listed" is correct)
+https://www.amazon.in/dp/B0C8TG753J
+https://www.amazon.in/dp/B0DFMGN9QQ
+https://www.amazon.in/dp/B093QJNRZW
+https://www.amazon.in/dp/B0FFN2CK8R
+# Apparel: polos, tees, jerseys, a women's tee, and an unbranded knock-off that must match nothing
+https://www.amazon.in/dp/B06Y1X1HTM
+https://www.amazon.in/dp/B0CM3STK3Z
+https://www.amazon.in/dp/B0GSGRPFTS
+https://www.amazon.in/dp/B07XKZF6V5
+https://www.amazon.in/dp/B07XFMDXY4
+https://www.amazon.in/dp/B0GHGNHHG2
+https://www.amazon.in/dp/B0DDTHS34Z
+https://www.amazon.in/dp/B0FJJ85ZM4
+https://www.amazon.in/dp/B0G58WYLMQ
+https://www.amazon.in/dp/B0DSV3CW9K
+https://www.amazon.in/dp/B076CHQJZP
+https://www.amazon.in/dp/B0FDB5HXTF
+https://www.amazon.in/dp/B0HPNPWFLZ

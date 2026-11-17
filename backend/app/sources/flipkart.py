@@ -12,7 +12,9 @@ from bs4 import BeautifulSoup
 
 from .. import http
 from ..models import Listing
-from ..normalize import clean, parse_gender, parse_ram, parse_screen_inches, parse_storage
+from ..normalize import (
+    apparel_facts_from_specs, clean, parse_gender, parse_ram, parse_screen_inches, parse_storage,
+)
 
 BASE = "https://www.flipkart.com"
 UNAVAILABLE = re.compile(r"currently unavailable|sold out|coming soon|out of stock|temporarily unavailable", re.I)
@@ -109,6 +111,7 @@ def enrich(item: Listing) -> Listing:
     for key, val in _SPEC_PAIR_REV.findall(t):
         specs.setdefault(key.lower(), val)
     item.extra["specs"] = {k: specs[k] for k in list(specs)[:40]}
+    item.extra["facts"] = apparel_facts_from_specs(specs)
 
     colour = specs.get("color") or specs.get("colour") or specs.get("brand color")
     if colour:

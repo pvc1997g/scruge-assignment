@@ -311,10 +311,10 @@
   <h3>Category detection, in order</h3>
   <ol>
     <li><strong>Breadcrumbs</strong> mention smartphones, televisions, t-shirts/polos/jerseys, or shoes/sneakers.</li>
-    <li><strong>Title words</strong>: "smartphone", "mobile phone", "iPhone", "TV" with a size, "polo", "jersey", "sneakers"…</li>
     <li><strong>Spec-table evidence</strong>: a phone operating system (iOS, Android, One UI…) plus storage or SIM details. This rescued a real page titled just "iPhone Duo (512 GB) - Night Sky" with no breadcrumbs.</li>
+    <li><strong>Title words</strong>: "smartphone", "mobile phone", "iPhone", "TV" with a size, "polo", "jersey", "sneakers"…</li>
   </ol>
-  <p>Accessories are excluded before any of this ("case", "cover", "tempered", "compatible with"…), so a replacement iPhone screen is not mistaken for an iPhone. Anything outside the four categories gets a clear <code>422</code> message.</p>
+  <p>Accessory words ("case", "cover", "tempered", "compatible with"…) only guard the title check, so a replacement iPhone screen is not mistaken for an iPhone, while a real phone whose title boasts "6500mAh + 45W Fast Charger" still counts. Anything outside the four categories gets a clear <code>422</code> message.</p>
 
   <h3>Normalisation: making facts comparable</h3>
   <table>
@@ -340,7 +340,7 @@
     <tr><th style="width:15%">Store</th><th style="width:32%">Search</th><th style="width:30%">Stock signal</th><th>Quirks handled</th></tr>
     <tr><td>Flipkart</td><td>Server-rendered search HTML. Product cards are parsed for title, brand, RAM/storage, price and "Currently unavailable" / "Sold out" flags.</td><td>The product page's own <code>availabilityStatus</code>: <code>IN_STOCK</code> or <code>OUT_OF_STOCK</code>.</td><td>Cards hide colour (fashion) and model codes (TVs), so product pages are opened for plausible candidates only: at most 8 per query, 4 at a time.</td></tr>
     <tr><td>Croma</td><td>The public JSON search API that croma.com calls (<code>query:relevance</code>).</td><td><code>stockFlag</code>: the list of stores and warehouses holding stock. Empty means it can't be bought.</td><td>Very loose relevance ("S24" returns S22 and S26 Ultra). Names TVs by series ("LG NU870B"), not full code.</td></tr>
-    <tr><td>Myntra</td><td>The search page embeds its results as JSON (<code>window.__myx</code>); a JSON gateway endpoint is the fallback.</td><td>Any size in <code>inventoryInfo</code> marked available.</td><td>Needs cookies from its homepage first, so the session is warmed once and reused.</td></tr>
+    <tr><td>Myntra</td><td>The search page embeds its results as JSON (<code>window.__myx</code>); a JSON gateway endpoint is the fallback.</td><td>Any size marked available, from the product page's size list when it is opened.</td><td>Needs homepage cookies first. For apparel, product pages are opened for their spec table (fit, neck, sleeve, pattern, fabric).</td></tr>
   </table>
 
   <h3>Query building, by category</h3>
@@ -394,14 +394,14 @@
 
   <h3>Gate 2: model, with a different rule per category</h3>
   <div class="grid2">
-    <div class="card"><h4>Smartphones</h4><p class="small">Marketing words are stripped ("5G", "AI Smartphone", spec figures). The remaining <strong>distinguishing tokens</strong> (anything with a digit, or a variant word such as Pro, Ultra, Plus, Lite, FE, Fold) must be <strong>identical sets</strong>. Names with neither (iPhone Duo) must match word for word. Amazon's structured "Model Name" is preferred to the title.</p>
+    <div class="card"><h4>Smartphones</h4><p class="small">Marketing words are stripped ("5G", "AI Smartphone", spec figures). The remaining <strong>distinguishing tokens</strong> (anything with a digit, or a variant word such as Pro, Ultra, Plus, Lite, FE, Fold) must be <strong>identical sets</strong>, and every series word must be present too (POP X ≠ POVA X). Names with neither (iPhone Duo) must match word for word. Amazon's "Model Name" field is preferred to the title.</p>
     <p class="small mono" style="color:#a8321f">Galaxy S24 vs Galaxy S22 → missing [s24], extra [s22]</p></div>
     <div class="card"><h4>Televisions</h4><p class="small">The manufacturer <strong>model code</strong> decides. An exact code match scores 1.0. A series-level match (Croma's "NU870B" inside Amazon's "43NU870BPLA") is accepted at 0.75 and labelled as such. If neither side shows a code, the series words must be ≥60% similar.</p>
     <p class="small mono" style="color:#1e6b52">43NU870BPLA vs NU870B → series match</p></div>
-    <div class="card"><h4>Sneakers</h4><p class="small">A matching style code (e.g. <code>DD8959-100</code>) is an instant match. Otherwise model words must overlap ≥60% (Dice coefficient) <strong>and</strong> version tokens must be identical: numbers ('07, 3.0, v2) and words like Mid, Low, Comfort, LV8. Aliases fix spelling: Lo → Low, NN → Next Nature.</p>
-    <p class="small mono" style="color:#a8321f">Smashic Comfort vs Smashic → version differs</p></div>
-    <div class="card"><h4>T-shirts, polos, jerseys</h4><p class="small">Clothes rarely have model names, so "model" means garment facts: <strong>type</strong>, <strong>pattern</strong>, <strong>fit</strong>, <strong>sleeve</strong>, <strong>neck</strong>, <strong>material</strong>. Any known fact that differs rejects; at least two must agree. Jerseys can instead match on shared team or event words (India, T20, International).</p>
-    <p class="small mono" style="color:#a8321f">Classic-fit cotton tee vs relaxed polyester tee → fit differs</p></div>
+    <div class="card"><h4>Sneakers</h4><p class="small">A matching style code (e.g. <code>DD8959-100</code>) is an instant match. Otherwise the model words must match <strong>exactly, both ways</strong> once generic words ("running shoes", "for men") are removed, and version words (Mid, Low, Comfort, Waterproof, Slip-Ins) are checked across the whole title. Aliases fix spelling: Lo → Low, NN → Next Nature.</p>
+    <p class="small mono" style="color:#a8321f">Court Vision Low Suede vs Low Next Nature → different</p></div>
+    <div class="card"><h4>T-shirts, polos, jerseys</h4><p class="small">First, the <strong>style code</strong>: Amazon's style number equal to the store's style code is a confirmed match. Otherwise garment facts are read from <strong>all three spec tables</strong>: pattern, fit, sleeve, neck, material. Any fact that differs rejects, and named product lines must agree (Essential ≠ Pique Tipping). At least two strong facts must agree; "it's a cotton t-shirt" counts for nothing. Jerseys need shared team or event words.</p>
+    <p class="small mono" style="color:#a8321f">Full-sleeve polo vs half-sleeve polo → sleeve differs</p></div>
   </div>
 
   <h3>Gate 3: the category's key attribute</h3>
@@ -412,7 +412,7 @@
   </ul>
 
   <h3>Scoring</h3>
-  <p>For listings that pass, <code>score = 0.5 + 0.5 × similarity</code>, where similarity comes from the model check (1.0 for an exact code or identical tokens). An exact colour adds 0.1 over a family colour for fashion. Apparel matched on garment facts alone is <strong>capped at 0.85</strong>, because it is honestly less certain than a model number; the UI shows "Likely match, 85% confidence" so the user can judge.</p>
+  <p>For listings that pass, <code>score = 0.5 + 0.5 × similarity</code>, where similarity comes from the model check (1.0 for an exact code or identical tokens). An exact colour adds 0.1 over a family colour for fashion. Apparel has three honest tiers: a <strong>style-code match</strong> scores 1.0; a facts match is capped at <strong>0.8</strong> and shown as "Likely match"; and a match on default facts only (solid, short sleeve, round neck, which describes most plain tees) scores about <strong>0.7</strong> and is shown as "Possible match, check the details before buying".</p>
 </section>
 
 <!-- ============================================================ 6 WINNER + STOCK -->
@@ -482,36 +482,36 @@ best = max(matches, key=rank)</pre>
 <section>
   <div class="section-no">8 &nbsp;Evaluation, limits and next steps</div>
   <h2>Tested on real links</h2>
-  <p>A fixed set of 15 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, including deliberately awkward ones: a page without breadcrumbs, a model name without numbers, adidas colour codes, a licensed cricket jersey. Results from the latest run:</p>
+  <p>A fixed set of 40 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, 80 store checks in all. It includes deliberately awkward cases: a page without breadcrumbs, a phone title that mentions a charger, adidas colour codes, a women's tee with a one-word title, a licensed jersey and an unbranded knock-off. Every result was reviewed by hand.</p>
 
-  <table style="font-size:8.2pt">
-    <tr><th style="width:42%">Amazon product</th><th style="width:29%">Store 1</th><th>Store 2</th></tr>
-    <tr><td>Samsung Galaxy S24, 8/128, Amber Yellow</td><td><span class="pill t-out"><span class="dot d-out"></span>Flipkart</span> same colour sold out</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span> only S22 / S26 listed</td></tr>
-    <tr><td>Apple iPhone 16, 128 GB, Teal</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Flipkart</span> only 16 Plus / Pro</td><td><span class="pill t-in"><span class="dot d-in"></span>Croma</span> Teal, 128 GB</td></tr>
-    <tr><td>Apple iPhone Duo, 512 GB, Night Sky</td><td><span class="pill t-out"><span class="dot d-out"></span>Flipkart</span></td><td><span class="pill t-out"><span class="dot d-out"></span>Croma</span></td></tr>
-    <tr><td>Redmi Note 14 Pro, 8/128, Titan Black</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span> only Note 17 Pro</td></tr>
-    <tr><td>OnePlus Nord CE6 Lite, 8/128, Vivid Mint</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Croma</span></td></tr>
-    <tr><td>LG 43" NU870B (43NU870BPLA)</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> code from product page</td><td><span class="pill t-in"><span class="dot d-in"></span>Croma</span> series match</td></tr>
-    <tr><td>Samsung 55" Mini LED (UA55M2EHAULXL)</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span></td></tr>
-    <tr><td>Sony 55" Bravia 2 M2 (K-55S25BM2)</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> series match, flagged</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span> no code shown</td></tr>
-    <tr><td>Samsung 55" Crystal UHD (UA55UE85AHULXL)</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Flipkart</span></td><td><span class="pill t-nl"><span class="dot d-nl"></span>Croma</span></td></tr>
-    <tr><td>Nike Court Vision Lo NN, White</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span></td></tr>
-    <tr><td>Puma Smashic Comfort, White</td><td><span class="pill t-nl"><span class="dot d-nl"></span>Flipkart</span> plain Smashic rejected</td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span> exact</td></tr>
-    <tr><td>adidas Grand Court 3.0, CBLACK/FTWWHT</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span></td></tr>
-    <tr><td>U.S. Polo Assn. printed slim polo, Olive</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> 85%, olive ≈ green</td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span> 85%, olive</td></tr>
-    <tr><td>Puma printed classic-fit cotton tee, White</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span> 85%</td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span> 85%</td></tr>
-    <tr><td>adidas India T20 cricket fan jersey</td><td><span class="pill t-in"><span class="dot d-in"></span>Flipkart</span></td><td><span class="pill t-in"><span class="dot d-in"></span>Myntra</span></td></tr>
+  <table>
+    <tr><th style="width:24%">Category</th><th style="width:12%">Links</th><th style="width:34%">Same product found</th><th>Not listed (each reviewed)</th></tr>
+    <tr><td>Smartphones</td><td>10</td><td>14 of 20 checks</td><td>6, e.g. Croma only had the S22 and S26, not the S24</td></tr>
+    <tr><td>Televisions</td><td>7</td><td>6 of 14</td><td>8, e.g. Flipkart sells Acer's Ultra I series, not the Ultra V</td></tr>
+    <tr><td>Sneakers</td><td>7</td><td>10 of 14</td><td>4, e.g. stores now stock Nike Revolution 8, not 7</td></tr>
+    <tr><td>T-shirts, polos, jerseys</td><td>16</td><td>20 of 32: 5 confirmed by style code, 9 likely, 6 flagged "possible"</td><td>12, e.g. a full-sleeve polo whose only candidates were half-sleeve</td></tr>
   </table>
-  <p class="small muted">For every "not listed" above, the closest rejected listings and the gate they failed were reviewed in the app's "Why" panel. Stock states reflect the stores at the time of the run and change daily.</p>
+
+  <h3>What testing caught, and what changed</h3>
+  <table style="font-size:8.2pt">
+    <tr><th style="width:38%">Found by testing new links</th><th>Fix</th></tr>
+    <tr><td>Apparel matched on weak facts: any black cotton tee of the brand passed.</td><td>Style codes first; facts from all three spec tables; "type" and "material" no longer count as evidence; default-only matches labelled "possible".</td></tr>
+    <tr><td>Oversized tee matched a slim-fit henley.</td><td>When a listing contradicts itself, the title wins over default spec fields.</td></tr>
+    <tr><td>Puma "Essential" polo matched a "Pique Tipping" polo.</td><td>Named product lines must agree.</td></tr>
+    <tr><td>Skechers Go Walk Flex matched the Waterproof Slip-Ins version.</td><td>Version words are read from the whole title.</td></tr>
+    <tr><td>A phone was rejected because its title said "45W Fast Charger".</td><td>Breadcrumbs and specs outrank accessory words.</td></tr>
+    <tr><td>Tecno "POP X" would have matched "POVA X".</td><td>Every series word must match, not just numbers.</td></tr>
+  </table>
+  <p class="small muted">Stock states reflect the stores at the time of the run and change daily.</p>
 
   <div class="grid2" style="margin-top: 4mm;">
     <div>
       <h3 style="margin-top:0">Known limits</h3>
       <ul>
         <li>Scrapers depend on page structure; a redesign means updating one adapter file.</li>
-        <li>Apparel without a style code can confuse two near-identical items from one brand; confidence is capped to make that visible.</li>
+        <li>Plain garments without a style code can't be told apart reliably; those matches are shown as "possible", never as confirmed.</li>
         <li>Stock is checked without a pincode: "the store is selling it", not "it can reach you".</li>
-        <li>Store search ranking bounds recall: if a store doesn't surface the item in its results, we don't see it.</li>
+        <li>Recall is bounded by each store's own search: what it doesn't surface, we can't see.</li>
       </ul>
     </div>
     <div>

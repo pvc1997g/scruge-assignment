@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -10,7 +11,9 @@ from bs4 import BeautifulSoup
 
 from .. import http
 from ..models import Category, Listing
-from ..normalize import clean, parse_gender, parse_ram, parse_screen_inches, parse_storage
+from ..normalize import (
+    apparel_facts_from_specs, clean, parse_gender, parse_ram, parse_screen_inches, parse_storage,
+)
 
 
 class UnsupportedProduct(Exception):
@@ -106,11 +109,17 @@ def _looks_like_phone(details: dict[str, str]) -> bool:
 
 def _category(crumbs: str, title: str, details: Optional[dict[str, str]] = None) -> Optional[Category]:
     c, t = crumbs.lower(), title.lower()
+    # Strongest to weakest evidence. Phone titles often mention accessories in the box
+    # ("6500mAh + 45W Fast Charger"), so the accessory filter only guards the title-only check.
+    leaf = c.split("›")[-1].strip() if c else ""
+    crumb_phone = "smartphone" in leaf or (
+        "smartphone" in c and not re.search(r"case|cover|protector|charger|cable|accessor|holder|stand", leaf)
+    )
     accessory = re.search(r"\b(case|cover|screen guard|tempered|protector|charger|cable|compatible with|back panel|replacement)\b", t)
-    if not accessory and (
-        "smartphone" in c
-        or re.search(r"\b(smartphone|mobile phone|iphone)\b", t)
+    if (
+        crumb_phone
         or (details is not None and _looks_like_phone(details))
+        or (not accessory and re.search(r"\b(smartphone|mobile phone|iphone)\b", t))
     ):
         return Category.SMARTPHONE
     if "television" in c or "smart tvs" in c or re.search(r"\b(tv|television)\b", t) and re.search(r"(inch|cm)", t):
@@ -144,12 +153,18 @@ def _price(soup: BeautifulSoup) -> Optional[float]:
 def fetch_product(url: str) -> Listing:
     asin = resolve_asin(url)
     canonical = f"https://www.amazon.in/dp/{asin}"
-    r, _ = http.get("amazon", canonical, retries=2)
-    if "validateCaptcha" in r.text or "api-services-support@amazon.com" in r.text:
+    # Amazon sometimes answers with a tiny interstitial ("continue shopping" / captcha) instead of
+    # the product. A fresh session usually gets the real page on the next try.
+    for attempt in range(3):
+        r, _ = http.get("amazon", canonical, retries=2)
+        blocked = ("validateCaptcha" in r.text or "api-services-support@amazon.com" in r.text
+                   or (r.status_code == 200 and 'id="productTitle"' not in r.text and len(r.text) < 20000))
+        if not blocked:
+            break
         http.reset_session("amazon")
-        r, _ = http.get("amazon", canonical, retries=1)
-        if "validateCaptcha" in r.text:
-            raise http.FetchError("Amazon showed a captcha; please try again in a minute.")
+        time.sleep(0.8 * (attempt + 1))
+    else:
+        raise http.FetchError("Amazon is showing a bot check right now; please try again in a minute.")
     if r.status_code == 404:
         raise UnsupportedProduct("Amazon says this product page doesn't exist.")
 
@@ -194,7 +209,8 @@ def fetch_product(url: str) -> Listing:
                 if screen:
                     break
 
-    model_number = details.get("item model number") or details.get("model number") or details.get("model")
+    model_number = (details.get("style number") or details.get("item model number")
+                    or details.get("model number") or details.get("model"))
     gender = parse_gender(details.get("department")) or parse_gender(title)
     avail_el = soup.select_one("#availability")
     avail_txt = clean(avail_el.get_text(" ")).lower() if avail_el else ""
@@ -220,5 +236,8 @@ def fetch_product(url: str) -> Listing:
         available=("in stock" in avail_txt) if avail_txt else None,
         price=_price(soup),
         image=(img.get("data-old-hires") or img.get("src")) if img else None,
-        extra={"asin": asin, "breadcrumbs": crumbs, "model_name": details.get("model name")},
+        extra={
+            "asin": asin, "breadcrumbs": crumbs, "model_name": details.get("model name"),
+            "facts": apparel_facts_from_specs(details) if category == Category.APPAREL else {},
+        },
     )

@@ -253,6 +253,7 @@ VARIANT_WORDS = set(
 TOKEN_ALIASES = {
     "lo": ["low"], "hi": ["high"], "nn": ["next", "nature"], "colour": ["color"],
     "tshirt": ["t", "shirt"], "07": ["07"], "1s": ["1"],
+    "ess": ["essential"], "essentials": ["essential"],  # Puma writes "ESS" for its Essentials line
 }
 
 _UNIT_TOKEN = re.compile(r"^\d+(?:\.\d+)?(gb|tb|mah|mp|hz|w|cm|cms|inch|inches|mm|k|p|nits|x)$")
@@ -347,6 +348,29 @@ def codes_overlap(src_codes: list[str], cand_codes: list[str]) -> Optional[str]:
     return None
 
 
+# ----------------------------------------------------------------------------- style codes
+
+def core_style_code(code: Optional[str]) -> str:
+    """'12261185-Jet Black' -> '12261185', 'EV008-001-PL' -> 'ev008001pl', '687093_01' -> '68709301'."""
+    if not code:
+        return ""
+    c = clean(code).lower()
+    # A colour name glued on after a dash is not part of the code.
+    c = re.split(r"[-\s](?=[a-z]{3,}(\s|$))", c)[0]
+    c = re.sub(r"[^a-z0-9]", "", c)
+    return c if len(c) >= 5 and re.search(r"\d", c) else ""
+
+
+def style_codes_match(a: Optional[str], b: Optional[str]) -> bool:
+    ca, cb = core_style_code(a), core_style_code(b)
+    if not ca or not cb:
+        return False
+    if ca == cb:
+        return True
+    short, long_ = sorted([ca, cb], key=len)
+    return len(short) >= 6 and long_.startswith(short)  # 687093 vs 68709301 (colour suffix)
+
+
 # ----------------------------------------------------------------------------- apparel facts
 
 def _strip_brand(text: str, brand: Optional[str]) -> str:
@@ -374,11 +398,12 @@ def apparel_facts(text: str, brand: Optional[str] = None) -> dict[str, str]:
         f["pattern"] = "striped"
     elif re.search(r"colou?r ?block", t):
         f["pattern"] = "colourblock"
-    elif re.search(r"\b(printed|print|graphic|typography|logo)\b", t):
+    elif re.search(r"\b(printed|print|graphic|typography|aop)\b", t):
+        # Not "logo": "Brand Logo Polo" is usually a plain polo with a small logo.
         f["pattern"] = "printed"
     elif re.search(r"\b(solid|plain|basic)\b", t):
         f["pattern"] = "solid"
-    if re.search(r"\bslim\b", t):
+    if re.search(r"\b(slim|fitted|skinny)\b", t):
         f["fit"] = "slim"
     elif re.search(r"\b(oversized|relaxed|boxy|loose)\b", t):
         f["fit"] = "oversized"
@@ -404,6 +429,105 @@ def apparel_facts(text: str, brand: Optional[str] = None) -> dict[str, str]:
         f["neck"] = "round"
     elif re.search(r"\bhenley\b", t):
         f["neck"] = "henley"
+    elif re.search(r"\b(band|mandarin|chinese)\s?collar\b", t):
+        f["neck"] = "band"
     elif re.search(r"\b(polo|spread|button.?down)?\s?collar\b", t) or f.get("type") == "polo":
         f["neck"] = "collar"
     return f
+
+
+def _norm_fit(v: str) -> Optional[str]:
+    v = v.lower()
+    if re.search(r"oversiz|relaxed|boxy|loose|baggy", v):
+        return "oversized"
+    if "muscle" in v:
+        return "muscle"
+    if re.search(r"slim|fitted|skinny|athletic", v):
+        return "slim"
+    if re.search(r"regular|classic|standard|comfort", v):
+        return "regular"
+    return None
+
+
+def _norm_sleeve(v: str) -> Optional[str]:
+    v = v.lower()
+    if "sleeveless" in v:
+        return "sleeveless"
+    if re.search(r"3/4|three.?quarter", v):
+        return "threequarter"
+    if re.search(r"full|long", v):
+        return "long"
+    if re.search(r"half|short|cap", v):
+        return "short"
+    return None
+
+
+def _norm_neck(v: str) -> Optional[str]:
+    v = v.lower()
+    if re.search(r"hood", v):
+        return "hood"
+    if re.search(r"\bv[\s-]?neck", v):
+        return "v"
+    if "henley" in v:
+        return "henley"
+    if re.search(r"band|mandarin|chinese", v):
+        return "band"
+    if re.search(r"turtle|mock|high neck", v):
+        return "high"
+    if re.search(r"round|crew", v):
+        return "round"
+    if re.search(r"polo|collar|spread|button", v):
+        return "collar"
+    return None
+
+
+def _norm_pattern(v: str) -> Optional[str]:
+    v = v.lower()
+    if re.search(r"strip", v):
+        return "striped"
+    if re.search(r"colou?r.?block", v):
+        return "colourblock"
+    if re.search(r"check|plaid", v):
+        return "checked"
+    if re.search(r"self.?design|textured|jacquard|waffle", v):
+        return "textured"
+    if re.search(r"print|graphic|typograph|logo|camouflage|abstract", v):
+        return "printed"
+    if re.search(r"solid|plain", v):
+        return "solid"
+    return None
+
+
+def _norm_material(v: str) -> Optional[str]:
+    v = v.lower()
+    if re.search(r"blend|polycotton|poly.?cotton|cotton.?poly", v):
+        return "blend"
+    if re.search(r"\bcotton\b|100% cotton|pure cotton", v) and not re.search(r"polyester|nylon|spandex|elastane|viscose", v):
+        return "cotton"
+    if re.search(r"polyester|nylon|dri.?fit|aeroready|dry.?cell|synthetic", v):
+        return "synthetic"
+    if "cotton" in v:
+        return "blend"
+    return None
+
+
+def apparel_facts_from_specs(specs: dict[str, str]) -> dict[str, str]:
+    """Garment facts from a spec table (Amazon details, Flipkart specs, Myntra articleAttributes)."""
+    f: dict[str, str] = {}
+    for raw_k, raw_v in specs.items():
+        if not isinstance(raw_v, str) or not raw_v.strip() or raw_v.strip().upper() == "NA":
+            continue
+        k, v = raw_k.lower(), raw_v
+        if "sleeve" in k and not re.search(r"styling|detail|cuff", k):
+            f.setdefault("sleeve", _norm_sleeve(v) or "")
+        elif ("neck" in k or "collar" in k) and "neckline" not in k:
+            f.setdefault("neck", _norm_neck(v) or "")
+        elif "pattern" in k and "coverage" not in k:
+            f.setdefault("pattern", _norm_pattern(v) or "")
+        elif k in ("fit", "fit type", "fitting type") or k.endswith(" fit"):
+            f.setdefault("fit", _norm_fit(v) or "")
+        elif k in ("fabric", "fabrics", "material type", "material composition", "outer material"):
+            f.setdefault("material", _norm_material(v) or "")
+        elif k == "type":  # Flipkart t-shirts: "Polo Neck", "Crew Neck"
+            f.setdefault("neck", _norm_neck(v) or "")
+    return {k: v for k, v in f.items() if v}

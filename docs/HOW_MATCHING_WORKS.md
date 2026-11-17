@@ -59,16 +59,23 @@ so the whole check usually takes 5–15 seconds.
 2. **Model.** This is the hard part, and it works differently per category:
    - **Phones:** we remove marketing words ("5G", "AI Smartphone") and compare the words that *identify* the model:
      anything with a digit (`S24`, `15`, `CE6`) or a variant word (`Pro`, `Ultra`, `Plus`, `Lite`, `FE`). These must be
-     **identical**. That's how `Galaxy S24` correctly fails against `Galaxy S24 Ultra` and `Galaxy S26`.
+     **identical**, and every series word must be present too. That's how `Galaxy S24` correctly fails against
+     `Galaxy S24 Ultra` and `Galaxy S26`, and `POP X` fails against `POVA X`.
    - **TVs:** we compare the **manufacturer model code**. Flipkart hides it on search results, so we open the
      product page to read it. Croma names TVs by series (`LG NU870B`) while Amazon shows the full code
      (`43NU870BPLA`), so a series match is accepted with slightly lower confidence and the UI says so.
-   - **Sneakers:** model words must agree (≥60% overlap), and version words (`Mid`, `Low`, `Comfort`, `v2`, `'07`)
-     must be identical. So `Smashic` ≠ `Smashic Comfort`. A matching style code (e.g. `DD8959-100`) is an instant match.
-   - **T-shirts / polos / jerseys:** clothes rarely have model names, so "model" means the garment's facts:
-     **type** (polo / tee / jersey), **pattern** (solid / printed / striped), **fit** (slim / regular / oversized),
-     **sleeve** and **neck**. Any known fact that differs is a rejection, and at least two must agree. Confidence
-     is capped at 85%, because apparel matching is honestly less certain than a model number.
+   - **Sneakers:** a matching style code (e.g. `DD8959-100`) is an instant match. Otherwise the model words must
+     match exactly, both ways, once generic words ("running shoes", "for men") are removed, and version words
+     (`Mid`, `Low`, `Comfort`, `Waterproof`, `Slip-Ins`, `'07`) are checked across the whole title. So
+     `Smashic` ≠ `Smashic Comfort` and `Court Vision Low Suede` ≠ `Court Vision Low Next Nature`.
+   - **T-shirts / polos / jerseys:** clothes rarely have model names, so we use the best evidence available:
+     1. **Style code.** If Amazon's style number equals the store's style code, it's the same garment (100%).
+     2. **Garment facts from all three spec tables:** **pattern** (solid / printed / striped), **fit**
+        (slim / regular / oversized), **sleeve** and **neck**, plus **material**. Any fact that differs rejects;
+        named product lines must agree (Puma *Essential* ≠ *Pique Tipping*); at least two strong facts must agree.
+        "It's a cotton t-shirt" counts for nothing. These are shown as **likely** matches (up to 80%).
+     3. If only the default facts agree (solid, short sleeve, round neck: true of most plain tees), the result is
+        labelled a **possible** match (about 70%) with "check the details before buying".
 3. **The category's extra rule.**
    - Phones: storage must be equal. RAM must be equal whenever both sites state it (Apple doesn't publish RAM,
      so model + storage decide there).
@@ -95,7 +102,7 @@ easy to debug.
 - No paid APIs or LLMs: everything is rules plus the platforms' own public pages and data.
 - If a platform changes its page layout, its adapter needs updating. Each platform lives in its own small file
   (`backend/app/sources/*.py`).
-- Apparel without a style code is matched on garment facts, so two near-identical polos from the same brand and
-  colour can be confused. The capped confidence and "Why?" panel make this visible.
+- Plain garments without a style code can't be told apart reliably (two plain black polos from one brand look the
+  same on paper). Those matches are labelled "possible", never confirmed, and the "Why?" panel shows the evidence.
 - Stock is checked without a delivery pincode, so it means "the platform is selling it", not "it can reach your
   address".
