@@ -122,5 +122,5 @@ frontend/src/app/
 - Scrapers depend on page structure; a platform redesign means updating one file in `sources/`.
 - Datacenter IPs (cloud hosting) are more likely to be blocked by these sites than a home connection.
 - Apparel without a style code is matched on garment facts (type, pattern, fit, sleeve, neck, material) plus
-  colour and gender, so confidence is capped at 85%.
+  colour and gender, so confidence is capped at 80% (70% when only basic details agree, labelled "possible").
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.
