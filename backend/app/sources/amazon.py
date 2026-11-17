@@ -142,12 +142,51 @@ def _colour(soup: BeautifulSoup, details: dict[str, str]) -> Optional[str]:
     return None
 
 
-def _price(soup: BeautifulSoup) -> Optional[float]:
-    el = soup.select_one("#corePriceDisplay_desktop_feature_div .a-price-whole, .a-price .a-offscreen")
-    if not el:
+# The buy-box price, most specific first. A page also carries many other prices (carousels,
+# M.R.P., per-unit), so take the first selector that yields a number, never "first price on the page".
+_PRICE_SELECTORS = [
+    "#corePriceDisplay_desktop_feature_div .priceToPay .a-offscreen",
+    "#corePriceDisplay_desktop_feature_div .priceToPay .a-price-whole",
+    "#corePriceDisplay_desktop_feature_div .a-price-whole",
+    "#corePrice_feature_div .a-price .a-offscreen",
+    "#corePrice_desktop .a-price .a-offscreen",
+    "#tp_price_block_total_price_ww .a-offscreen",
+    "#apex_desktop .priceToPay .a-offscreen",
+    "#apex_desktop .a-price:not(.a-text-price) .a-offscreen",
+    "#priceblock_ourprice", "#priceblock_dealprice",
+]
+
+
+def _to_amount(text: str) -> Optional[float]:
+    m = re.search(r"\d[\d,]*(?:\.\d+)?", text or "")
+    if not m:
         return None
-    m = re.search(r"[\d,]+(?:\.\d+)?", el.get_text())
-    return float(m.group(0).replace(",", "")) if m else None
+    v = float(m.group(0).replace(",", ""))
+    return v if v > 0 else None
+
+
+
+def _availability(text: str) -> Optional[bool]:
+    """Amazon's availability line, e.g. "In stock", "Only 3 left in stock", "Available to ship in 1-2 days",
+    "Currently unavailable.", "Temporarily out of stock." None when it says nothing we recognise."""
+    t = (text or "").lower()
+    if not t:
+        return None
+    if re.search(r"currently unavailable|out of stock|not available|unavailable|no longer available", t):
+        return False
+    if re.search(r"in stock|left in stock|available to ship|usually (dispatched|ships)|ships within|dispatched within|available", t):
+        return True
+    return None
+
+def _price(soup: BeautifulSoup, html: str = "") -> Optional[float]:
+    for sel in _PRICE_SELECTORS:
+        for el in soup.select(sel):
+            v = _to_amount(el.get_text())
+            if v:
+                return v
+    # Fallback: the price Amazon embeds for its own variant picker.
+    m = re.search(r'"priceAmount"\s*:\s*([\d.]+)', html)
+    return _to_amount(m.group(1)) if m else None
 
 
 def fetch_product(url: str) -> Listing:
@@ -233,8 +272,8 @@ def fetch_product(url: str) -> Listing:
         screen_in=screen if category == Category.TV else None,
         model_number=model_number,
         gender=gender if category in (Category.SNEAKERS, Category.APPAREL) else None,
-        available=("in stock" in avail_txt) if avail_txt else None,
-        price=_price(soup),
+        available=_availability(avail_txt),
+        price=_price(soup, r.text),
         image=(img.get("data-old-hires") or img.get("src")) if img else None,
         extra={
             "asin": asin, "breadcrumbs": crumbs, "model_name": details.get("model name"),

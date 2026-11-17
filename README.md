@@ -14,7 +14,7 @@ Each platform shows one of: **In stock** (with link), **Out of stock** (with lin
 
 ## Documents
 
-- **[The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf)**: how matching works, explained for a five-year-old (10-page picture book).
+- **[The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf)**: how matching works, explained for a five-year-old (11-page picture book).
 - **[How a link becomes an answer](docs/Scruge-Technical-Walkthrough.pdf)**: the end-to-end technical walkthrough, with architecture, a real request traced step by step, the matching rules, design decisions and test results (12 pages).
 - [`docs/HOW_MATCHING_WORKS.md`](docs/HOW_MATCHING_WORKS.md): the same explanation as text, also served in the app at `/how-it-works`.
 
