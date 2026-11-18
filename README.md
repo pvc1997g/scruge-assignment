@@ -16,7 +16,7 @@ store that doesn't sell the product.
 
 ## Documents
 
-- **[How Scruge finds the same product](docs/Scruge-Explained-Like-Im-5.docx)**: the simple explanation for a five-year-old, as the brief asks (Word document, 2 pages).
+- **[How Scruge finds the same product](docs/Scruge-Explained-Like-Im-5.docx)**: how the matching works, explained for a five-year-old, with real examples from the tests (short Word document).
 - [The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf): the same explanation as an illustrated picture book (11 pages).
 - [How a link becomes an answer](docs/Scruge-Technical-Walkthrough.pdf): the end-to-end technical walkthrough, with architecture, a real request traced step by step, the matching rules, design decisions and test results (12 pages).
 - [`docs/HOW_MATCHING_WORKS.md`](docs/HOW_MATCHING_WORKS.md): the same explanation as text, also served in the app at `/how-it-works`.
@@ -68,6 +68,7 @@ docker compose exec backend python scripts/try_link.py https://www.amazon.in/dp/
 cd backend
 .venv/bin/python scripts/try_link.py https://www.amazon.in/dp/B0GVYGLNH7
 .venv/bin/python scripts/try_link.py $(grep -v '^#' scripts/test_links.txt)   # whole test set
+.venv/bin/python scripts/score_review.py                                      # the reviewer's 20 links, scored
 ```
 
 ## API
@@ -129,4 +130,6 @@ frontend/src/app/
 - Datacenter IPs (cloud hosting) are more likely to be blocked by these sites than a home connection.
 - Apparel without a style code is matched on garment facts (type, pattern, fit, sleeve, neck, material) plus
   colour and gender. If only basic details agree, it's reported as Not listed rather than guessed.
+- Recall is bounded by each store's own search. Some listings (mostly sold-out ones) never appear in search
+  results however the query is phrased; on the reviewer's 20 links, five products miss a listing for this reason.
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.

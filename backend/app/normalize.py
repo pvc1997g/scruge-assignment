@@ -140,13 +140,13 @@ def parse_screen_inches(text: str) -> Optional[int]:
 
 BASE_COLOURS = [
     "black", "white", "grey", "silver", "blue", "green", "red", "pink", "purple", "yellow",
-    "orange", "brown", "beige", "gold", "maroon", "navy", "olive", "teal", "multi",
+    "orange", "brown", "beige", "gold", "maroon", "navy", "olive", "teal", "multi", "offwhite",
 ]
 
 COLOUR_SYNONYMS = {
     "gray": "grey", "graphite": "grey", "charcoal": "grey", "ash": "grey", "slate": "grey", "titanium": "grey",
     "onyx": "black", "jet": "black", "obsidian": "black", "midnight": "black", "phantom": "black", "noir": "black",
-    "ivory": "white", "offwhite": "white", "cream": "beige", "chalk": "white", "pearl": "white", "snow": "white",
+    "ivory": "offwhite", "cream": "beige", "chalk": "offwhite", "pearl": "white", "snow": "white",
     "cobalt": "blue", "sky": "blue", "aqua": "blue", "turquoise": "teal", "indigo": "blue", "azure": "blue", "denim": "blue",
     "mint": "green", "lime": "green", "sage": "green", "emerald": "green", "khaki": "beige", "tan": "brown",
     "camel": "brown", "coffee": "brown", "chocolate": "brown", "rust": "orange", "coral": "orange", "peach": "orange",
@@ -165,10 +165,13 @@ COLOUR_SYNONYMS = {
     "forest": "green", "bottle": "green", "jade": "green", "moss": "green", "pistachio": "green",
     "plum": "purple", "fuchsia": "pink", "blush": "pink", "cherry": "red", "brick": "red", "salmon": "orange",
     "apricot": "orange", "ochre": "yellow",
+    # Nike / adidas colour names ("SHIMMER/LT COGNAC-SAIL", "TENABL/WHITE")
+    "sail": "offwhite", "shimmer": "offwhite", "cognac": "brown", "hazel": "brown", "tenabl": "navy", "mufred": "red",
 }
 
 # Colours that are commonly treated as interchangeable shades of each other.
 COLOUR_FAMILIES = {
+    "offwhite": "white",
     "navy": "blue",
     "maroon": "red",
     "olive": "green",
@@ -249,7 +252,7 @@ GENERIC_WORDS = set(
     shoe shoes sneaker sneakers footwear running sports sport casual walking training trainers trainer gym lace laceup
     ups lace-ups slip on outdoor lifestyle comfortable lightweight trendy stylish
     t shirt shirts tshirt tshirts tee tees polo polos jersey jerseys top tops wear clothing apparel
-    pack size sizes uk us eu india original genuine
+    pack size sizes uk us eu india original genuine xs s m l xl xxl xxxl 2xl 3xl 4xl
     """.split()
 )
 
@@ -262,7 +265,7 @@ VARIANT_WORDS = set(
 
 # Same word, different spelling across platforms.
 TOKEN_ALIASES = {
-    "lo": ["low"], "hi": ["high"], "nn": ["next", "nature"], "colour": ["color"],
+    "lo": ["low"], "hi": ["high"], "ox": ["low"], "nn": ["next", "nature"], "colour": ["color"],
     "tshirt": ["t", "shirt"], "07": ["07"], "1s": ["1"],
     "ess": ["essential"], "essentials": ["essential"],  # Puma writes "ESS" for its Essentials line
 }
@@ -549,3 +552,30 @@ def apparel_facts_from_specs(specs: dict[str, str]) -> dict[str, str]:
         elif k == "type":  # Flipkart t-shirts: "Polo Neck", "Crew Neck"
             f.setdefault("neck", _norm_neck(v) or "")
     return {k: v for k, v in f.items() if v}
+
+
+# ----------------------------------------------------------------------------- misc listing facts
+
+def network_gen(text: Optional[str]) -> Optional[str]:
+    """'5g' / '4g' when a phone title says so, else None."""
+    t = (text or "").lower()
+    if re.search(r"\b5g\b", t):
+        return "5g"
+    if re.search(r"\b4g\b", t):
+        return "4g"
+    return None
+
+
+_PACK = re.compile(r"\b(pack of\s*[2-9]|set of\s*[2-9]|combo|multipack|[2-9]\s*(pcs|pieces|pack))\b", re.I)
+
+
+def is_multipack(text: Optional[str]) -> bool:
+    return bool(_PACK.search(text or ""))
+
+
+def colour_name_key(colour: Optional[str]) -> str:
+    """Brand colour names compared as written: 'BLACK (RED)' == 'Black(Red)', 'SHIMMER/LT COGNAC-SAIL' -> 'shimmer'."""
+    if not colour:
+        return ""
+    first = re.split(r"[/,]", clean(colour).lower())[0]
+    return re.sub(r"[^a-z0-9]", "", first)

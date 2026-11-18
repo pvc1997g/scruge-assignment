@@ -197,7 +197,7 @@ def fetch_product(url: str) -> Listing:
     for attempt in range(3):
         r, _ = http.get("amazon", canonical, retries=2)
         blocked = ("validateCaptcha" in r.text or "api-services-support@amazon.com" in r.text
-                   or (r.status_code == 200 and 'id="productTitle"' not in r.text and len(r.text) < 20000))
+                   or (r.status_code == 200 and 'id="productTitle"' not in r.text))  # holding pages come in all sizes
         if not blocked:
             break
         http.reset_session("amazon")

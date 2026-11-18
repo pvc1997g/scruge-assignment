@@ -75,6 +75,11 @@ def enrich(item: Listing) -> Listing:
         return item
     attrs = pdp.get("articleAttributes") or {}
     item.extra["specs"] = attrs
+    # Myntra often keeps the model out of the title ("Nike Women Leather Sneakers") and puts it in the
+    # collection name ("Court Vision Alta") or the description ("Essentials Men's Polo", "Levi's 025").
+    item.extra["collection"] = re.sub(r"<[^>]+>", " ", attrs.get("Collection Name") or "").strip() or None
+    desc = " ".join(str(d.get("description") or "") for d in (pdp.get("productDetails") or []))
+    item.extra["text"] = re.sub(r"\s+", " ", re.sub(r"<[^>]+>|&nbsp;", " ", desc))[:1500]
     item.extra["facts"] = apparel_facts_from_specs(attrs)
     item.colour = item.colour or pdp.get("baseColour")
     sizes = pdp.get("sizes") or []

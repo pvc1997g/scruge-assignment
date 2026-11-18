@@ -118,9 +118,15 @@ def enrich(item: Listing) -> Listing:
         item.colour = colour
     if specs.get("brand"):
         item.brand = specs["brand"]
-    model = specs.get("model name") or specs.get("model id") or specs.get("model number") or specs.get("style code")
+    # A style code identifies a garment or shoe exactly, so it wins over a marketing "model name".
+    model = specs.get("style code") or specs.get("model name") or specs.get("model id") or specs.get("model number")
     if model:
         item.model_number = model
+    item.extra["model_name"] = specs.get("model name")
+    item.extra["brand_colour"] = specs.get("brand color")
+    item.extra["pack_of"] = specs.get("pack of")
+    item.extra["text"] = " ".join(filter(None, [specs.get("model name"), specs.get("style code"),
+                                                specs.get("network type"), specs.get("supported networks")]))
     if item.ram_gb is None and specs.get("ram"):
         item.ram_gb = parse_ram(specs["ram"] + " RAM")
     if item.storage_gb is None and specs.get("internal storage"):

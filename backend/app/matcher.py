@@ -13,12 +13,17 @@ Candidates that pass all gates get a similarity score, and the best one wins.
 from __future__ import annotations
 
 import re
+from typing import Optional
 
 from .models import Category, Listing, MatchVerdict
 from .normalize import (
     VARIANT_WORDS, apparel_facts, brands_match, codes_overlap, colours_match, genders_compatible,
-    core_style_code, is_distinguishing, model_codes, model_tokens, style_codes_identical, style_codes_match, tokens,
+    colour_name_key, core_style_code, is_distinguishing, is_multipack, model_codes, model_tokens, network_gen,
+    style_codes_identical, style_codes_match, tokens,
 )
+
+# Umbrella words a store may leave out of a phone's name: Flipkart sells the "Galaxy M36" as "Samsung M36 5G".
+OPTIONAL_SERIES = {"galaxy", "moto"}
 
 
 def source_model_tokens(src: Listing) -> list[str]:
@@ -55,7 +60,7 @@ def _model_check_strict(src: Listing, cand: Listing, reasons: list[str]) -> tupl
         reasons.append(f"model {' '.join(st)} matches")
         return True, 1.0
     # The series name must be there too: "POP X" vs "POVA X" share only the variant word "x".
-    name_missing = [t for t in st if t not in sd and t not in ct]
+    name_missing = [t for t in st if t not in sd and t not in ct and t not in OPTIONAL_SERIES]
     if name_missing:
         reasons.append(f"different model name (missing {name_missing}): {' '.join(st)} vs {' '.join(ct)}")
         return False, 0.0
@@ -68,15 +73,74 @@ def _model_check_strict(src: Listing, cand: Listing, reasons: list[str]) -> tupl
             bits.append(f"extra {sorted(extra)}")
         reasons.append(f"different model ({', '.join(bits)}): {' '.join(st)} vs {' '.join(ct)}")
         return False, 0.0
-    sim = _dice(st, ct)
+    # 5G and 4G versions often share a name (REDMI A7 Pro vs REDMI A7 Pro 5G) but are different phones.
+    sn, cn = network_gen(src.title), network_gen(cand.title + " " + cand.extra.get("text", ""))
+    if sn and cn and sn != cn:
+        reasons.append(f"different network ({sn.upper()} vs {cn.upper()})")
+        return False, 0.0
+    if sn == "5g" and cn is None and cand.platform == "croma" and "apple" not in (cand.brand or "").lower():
+        # Croma puts "5G" in the name of every 5G phone it sells (iPhones aside), so its absence means 4G.
+        reasons.append("Amazon's phone is 5G; Croma's listing isn't")
+        return False, 0.0
+    sim = _dice([t for t in st if t not in OPTIONAL_SERIES], [t for t in ct if t not in OPTIONAL_SERIES])
     reasons.append(f"model {' '.join(sorted(sd))} matches")
     return True, sim
+
+
+_SIZED = re.compile(r"^[a-z]{0,3}(\d{2,3})[a-z]")
+_YEAR = re.compile(r"\b(20[12]\d)\b")
+
+
+def _sized(code: str, screen: Optional[float]) -> bool:
+    m = _SIZED.match(code)
+    return bool(m and screen is not None and abs(int(m.group(1)) - screen) <= 1)
+
+
+def _tv_code_relation(src: Listing, cand: Listing, src_codes: list[str], cand_codes: list[str]):
+    """Compare two full manufacturer codes (with the screen size in them). Returns
+    ('exact', code), ('variant', 'A vs B'), ('conflict', 'A vs B') or None when there's nothing to compare.
+      K55S25BM2 vs K55S25BM2 -> exact
+      K55S25BM2 vs K55S25EM2 -> variant  (one letter, same length: Sony's e-commerce variant of the same set)
+      K55S25BM2 vs K55S25B   -> conflict (the M2 revision is a newer model)"""
+    src_full = [c for c in src_codes if _sized(c, src.screen_in)][:1]
+    cand_full = [c for c in cand_codes if _sized(c, cand.screen_in)]
+    if not src_full or not cand_full:
+        return None
+    a = src_full[0]
+    best = None
+    for b in cand_full:
+        if a == b:
+            return "exact", a.upper()
+        short, long_ = sorted([a, b], key=len)
+        if long_.startswith(short) and not re.search(r"\d", long_[len(short):]):
+            return None  # region/packaging suffix only (43NU870B vs 43NU870BPLA): let the series logic decide
+        one_letter = (len(a) == len(b) and sum(x != y for x, y in zip(a, b)) == 1
+                      and all(x.isalpha() and y.isalpha() for x, y in zip(a, b) if x != y))
+        years_differ = set(_YEAR.findall(src.title)) and set(_YEAR.findall(cand.title)) and \
+            not set(_YEAR.findall(src.title)) & set(_YEAR.findall(cand.title))
+        samsung_style = re.match(r"^[uq]a\d", a)  # Samsung's letters encode the model year
+        if one_letter and not years_differ and not samsung_style:
+            best = best or ("variant", f"{a.upper()} vs {b.upper()}")
+        elif best is None and codes_overlap([a], [b]):
+            best = ("conflict", f"{a.upper()} vs {b.upper()}")
+    return best
 
 
 def _model_check_tv(src: Listing, cand: Listing, reasons: list[str]) -> tuple[bool, float]:
     """TVs: match on manufacturer model code (full 'UA55U8500HULXL' or series 'U8500H')."""
     src_codes = model_codes(" ".join(filter(None, [src.model_number or "", src.title])), src.screen_in)
     cand_codes = model_codes(" ".join(filter(None, [cand.model_number or "", cand.title])), cand.screen_in)
+    rel = _tv_code_relation(src, cand, src_codes, cand_codes)
+    if rel is not None:
+        kind, detail = rel
+        if kind == "exact":
+            reasons.append(f"model code {detail} matches")
+            return True, 1.0
+        if kind == "variant":
+            reasons.append(f"model code {detail} (same model, one-letter regional variant)")
+            return True, 0.7
+        reasons.append(f"different model code ({detail})")
+        return False, 0.0
     shared = codes_overlap(src_codes, cand_codes)
     if shared:
         full_src = src_codes[0] if src_codes else ""
@@ -116,38 +180,68 @@ def _style_code_hit(src: Listing, cand: Listing) -> bool:
         return False
     if style_codes_match(src.model_number, cand.model_number):
         return True
-    hay = re.sub(r"[^a-z0-9]", "", " ".join([cand.title, cand.extra.get("description", "")]).lower())
+    hay = re.sub(r"[^a-z0-9]", "", " ".join(filter(None, [cand.title, cand.extra.get("description", ""),
+                                                          cand.extra.get("model_name"), cand.model_number])).lower())
     return len(code) >= 6 and code in hay
 
 
+HEIGHTS = {"low", "mid", "high"}
+# Extra words a store may add to a shoe's name without making it a different shoe. Anything else extra
+# ("Malden Street", "GCEL", "Independent") names a sub-model, so it rejects.
+SHOE_EXTRA_OK = HEIGHTS | {"top", "leather", "ltr", "synthetic", "mesh", "textile", "knit", "road", "basketball",
+                           "casuals", "w", "wmns", "memory", "foam", "lace", "up", "ups", "low-top"}
+
+
+def _shoe_versions(toks: list[str]) -> set[str]:
+    """Words that make a different shoe: version words, and short numbers (8, 3.0, 574, 07, v2).
+    Long numbers and alphanumeric codes (177288, ML574EVG) are style codes, not versions."""
+    out = set()
+    for t in toks:
+        if t in SNEAKER_VARIANTS:
+            out.add(t)
+        elif re.search(r"\d", t) and len(t) <= 4:
+            out.add(t)
+    return out
+
+
+def listing_text(c: Listing) -> str:
+    """Everything a store says about a listing's name: title plus model name / collection / description."""
+    return " ".join(filter(None, [c.title, c.extra.get("model_name"), c.extra.get("collection"), c.extra.get("text")]))
+
+
 def _model_check_sneakers(src: Listing, cand: Listing, reasons: list[str]) -> tuple[bool, float]:
-    """Model-name words must agree; numbers ('07, 574, v2) and variant words (mid, comfort) must be identical."""
+    """Every Amazon model word must be on the listing, and version words (8 vs 7, Mid, Comfort, SE) must agree.
+    Extra words on the store's side are fine: 'Court Vision Alta Leather', 'Revolution 8 Road Running'."""
     if _style_code_hit(src, cand):
         reasons.append(f"style code {src.model_number} found")
         return True, 1.0
     st = model_tokens(src.title, src.brand)
-    ct = model_tokens(cand.title, cand.brand)
     if not st:
         reasons.append("couldn't find a model name on the Amazon page")
         return False, 0.0
-    sd = {t for t in st if is_distinguishing(t) or t in SNEAKER_VARIANTS}
-    cd = {t for t in ct if is_distinguishing(t) or t in SNEAKER_VARIANTS}
-    # Construction variants often sit after a dash ("GO WALK FLEX - Waterproof Slip-Ins"), outside
-    # the model name we compare, so look for them across the whole title.
+    cand_name = " ".join(filter(None, [cand.title, cand.extra.get("model_name"), cand.extra.get("collection")]))
+    ct = model_tokens(cand_name, cand.brand, cut_at_paren=False)
+    sd, cd = _shoe_versions(st), _shoe_versions(ct)
+    # Construction variants often sit after a dash ("GO WALK FLEX - Waterproof Slip-Ins"): read the whole title.
     sd |= set(tokens(src.title)) & FULL_TITLE_VARIANTS
-    cd |= set(tokens(cand.title)) & FULL_TITLE_VARIANTS
+    cd |= set(tokens(cand_name)) & FULL_TITLE_VARIANTS
+    # Low top is the default: "Chuck Taylor All Star" and "Chuck Taylor All Star Low Top" are the same shoe.
+    if not (sd & HEIGHTS):
+        cd.discard("low")
+    if not (cd & HEIGHTS):
+        sd.discard("low")
     if sd != cd:
         reasons.append(f"different model version ({sorted(sd) or '-'} vs {sorted(cd) or '-'})")
         return False, 0.0
-    # Every model word must match both ways: "Court Vision Low Suede" is not "Court Vision Low Next Nature",
-    # and "Smash Comfort" is not "Smashic Comfort". Generic words (running shoes, for men) are already gone.
-    missing, extra = set(st) - set(ct), set(ct) - set(st)
+    missing = [t for t in st if t not in ct]
+    extra = [t for t in ct if t not in st and t not in SHOE_EXTRA_OK and not t.isdigit() and len(t) > 1
+             and not (re.search(r"\d", t) and len(t) > 4)]  # style codes like 177288 / ML574EVG aren't names
     if missing or extra:
-        bits = ([f"missing {sorted(missing)}"] if missing else []) + ([f"extra {sorted(extra)}"] if extra else [])
+        bits = ([f"missing {missing}"] if missing else []) + ([f"extra {extra}"] if extra else [])
         reasons.append(f"different model ({', '.join(bits)}): '{' '.join(st)}' vs '{' '.join(ct)}'")
         return False, 0.0
     reasons.append(f"model '{' '.join(st)}' matches")
-    return True, 1.0
+    return True, (1.0 if set(st) == set(ct) else 0.9)  # an exact name ranks above one with extra words
 
 
 def garment_facts(listing: Listing) -> dict[str, str]:
@@ -158,6 +252,10 @@ def garment_facts(listing: Listing) -> dict[str, str]:
 
 
 STRONG_FACTS = ("pattern", "fit", "sleeve", "neck")
+KIT_WORDS = {"home", "away", "third", "fourth", "goalkeeper", "training", "prematch"}
+DETAIL_WORDS = {"contrast", "tipped", "tipping", "colourblock", "colorblock", "colourblocked", "colorblocked",
+                "raglan", "ringer", "applique", "zip", "pocket", "pockets", "henley", "badge", "jacquard"}
+JERSEY_DETAIL_WORDS = {"striped", "stripes", "hooped"}  # a striped teamLIGA is a different kit from the plain one
 # What a plain garment of each type is by default: agreeing on these says little.
 DEFAULT_FACTS = {
     "tshirt": {"pattern": "solid", "fit": "regular", "sleeve": "short", "neck": "round"},
@@ -194,8 +292,17 @@ def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tup
         return True, 1.0
 
     sf, cf = garment_facts(src), garment_facts(cand)
-    if "type" in sf and "type" in cf and sf["type"] != cf["type"]:
+    jersey = sf.get("type") == "jersey"
+    # Stores often list a football jersey as a T-shirt ("ADIDAS Men Striped Crew Neck Polyester Blue T-Shirt").
+    types = {sf.get("type"), cf.get("type")}
+    if "type" in sf and "type" in cf and sf["type"] != cf["type"] and types != {"jersey", "tshirt"}:
         reasons.append(f"different garment ({sf['type']} vs {cf['type']})")
+        return False, 0.0
+    # A design detail the Amazon garment doesn't have makes it a different garment (contrast sleeves, tipping).
+    details = DETAIL_WORDS | (JERSEY_DETAIL_WORDS if jersey else set())
+    extra_detail = sorted((set(tokens(cand.title)) & details) - set(tokens(src.title)))
+    if extra_detail:
+        reasons.append(f"has details the Amazon one doesn't ({', '.join(extra_detail)})")
         return False, 0.0
 
     strong: list[str] = []
@@ -205,6 +312,8 @@ def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tup
             continue
         if k == "material" and "blend" in (a, b):
             continue  # "cotton" vs "cotton blend" is too fuzzy across stores to decide anything
+        if jersey and k in ("pattern", "fit", "neck"):
+            continue  # stores label team kits inconsistently (graphic print / striped / solid, slim / regular)
         if a != b:
             reasons.append(f"different {k} ({a} vs {b})")
             return False, 0.0
@@ -214,19 +323,34 @@ def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tup
 
     st = model_tokens(src.title, src.brand, cut_at_paren=False)
     ct = model_tokens(cand.title, cand.brand, cut_at_paren=False)
+    full = set(model_tokens(listing_text(cand), cand.brand, cut_at_paren=False))  # incl. Myntra description
     sim = _dice(st, ct)
     # Jerseys / licensed tees are identified by their name words (India T20, Real Madrid 25/26 Away).
     shared_name = sorted(set(st) & set(ct) - _NAME_NOISE)
     named = sim >= 0.45 and len(shared_name) >= 3
 
-    if sf.get("type") == "jersey" and not named:
-        reasons.append(f"different or unknown jersey ({' '.join(st[:6]) or '?'} vs {' '.join(ct[:6]) or '?'})")
-        return False, 0.0
+    if jersey:
+        # A jersey is its team / line name, season and kit: "Manchester United 24/25 Home", "TIRO 23".
+        name_words = [t for t in st if t not in _NAME_NOISE and len(t) > 1]
+        shared_name = sorted(set(name_words) & full)
+        seasons = {t for t in name_words if t.isdigit() and len(t) == 2}  # 24/25, TIRO 23
+        name_only = " ".join(filter(None, [cand.title, cand.extra.get("collection")]))
+        kit_src = set(st) & KIT_WORDS
+        kit_cand = set(tokens(name_only)) & KIT_WORDS
+        kit_conflict = bool(kit_src and kit_cand and not (kit_src & kit_cand))  # Home vs Away
+        if len(shared_name) < 2 or not seasons <= full or kit_conflict:
+            reasons.append(f"different or unknown jersey ({' '.join(name_words[:6]) or '?'} vs {' '.join(ct[:6]) or '?'})")
+            return False, 0.0
+        named = True
 
     # Named product lines must agree: Puma "Essential" polo is not Puma "Pique Tipping" polo.
     sl, cl = _line_words(src), _line_words(cand)
-    if sl and cl and not (sl & cl):
+    if sl and cl and not (sl & cl) and not (sl & full):
         reasons.append(f"different product line ({' '.join(sorted(sl))} vs {' '.join(sorted(cl))})")
+        return False, 0.0
+    if sl and not named and not (sl & full):
+        # Amazon names a line (Puma "Essential", Levi's "025"); a listing that never mentions it isn't confirmed.
+        reasons.append(f"product line {' '.join(sorted(sl))} not mentioned on this listing")
         return False, 0.0
 
     if len(strong) < 2 and not named:
@@ -236,7 +360,7 @@ def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tup
 
     defaults = DEFAULT_FACTS.get(sf.get("type", ""), {})
     distinctive = [s for s in strong if defaults.get(s.split("=")[0]) != s.split("=")[1]]
-    shared_line = sorted(sl & cl)
+    shared_line = sorted(sl & (cl | full))
 
     detail = ", ".join(([sf["type"]] if sf.get("type") else []) + strong)
     if named:
@@ -251,7 +375,8 @@ def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tup
         reasons.append("only basic details in common (true of most plain garments), so not confirmed as the same product")
         return False, 0.0
     # Without a style code, score grows with the evidence but stays below 0.8 (shown only in "Why?").
-    return True, min(0.55, 0.12 * len(strong) + 0.1 * len(distinctive) + (0.25 if named or shared_line else 0) + 0.15 * sim)
+    # Ties between equally good listings go to the one whose title reads most like Amazon's.
+    return True, min(0.55, 0.12 * len(strong) + 0.1 * len(distinctive) + (0.25 if named or shared_line else 0)) + 0.1 * sim
 
 
 def match(src: Listing, cand: Listing) -> MatchVerdict:
@@ -308,7 +433,14 @@ def match(src: Listing, cand: Listing) -> MatchVerdict:
     else:  # sneakers / apparel
         if not genders_compatible(src.gender, cand.gender):
             return MatchVerdict(False, 0.0, reasons + [f"made for different wearer ({src.gender} vs {cand.gender})"])
+        pack = is_multipack(cand.title) or str(cand.extra.get("pack_of") or "1").strip() not in ("", "1")
+        if pack and not is_multipack(src.title):
+            return MatchVerdict(False, 0.0, reasons + ["a multi-pack, not the single item"])
         ok_c, why = colours_match(src.colour, cand.colour)
+        key = colour_name_key(src.colour)
+        if len(key) >= 3 and key in {colour_name_key(cand.extra.get("brand_colour")), colour_name_key(cand.colour)}:
+            # The store repeats the brand's own colour name ("DESERT KHAKI/DARK HAZEL-SAIL", "Shimmer").
+            ok_c, why = True, f"colour name {src.colour} matches"
         if ok_c is False:
             return MatchVerdict(False, 0.0, reasons + [why])
         if ok_c is None:
@@ -324,5 +456,9 @@ def match(src: Listing, cand: Listing) -> MatchVerdict:
 
     score = min(1.0, 0.5 + 0.5 * sim)
     if cat == Category.APPAREL and not any("style code" in r for r in reasons):
-        score = min(score, 0.8)  # garment-facts match is less certain than a style code
+        # A garment-facts match is less certain than a style code. Below the cap, how closely the title reads
+        # like Amazon's still breaks ties between equally good listings.
+        title_sim = _dice(model_tokens(src.title, src.brand, cut_at_paren=False),
+                          model_tokens(cand.title, cand.brand, cut_at_paren=False))
+        score = min(score, 0.75) + 0.05 * title_sim
     return MatchVerdict(True, round(score, 3), reasons)

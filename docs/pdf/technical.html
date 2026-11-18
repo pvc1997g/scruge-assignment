@@ -399,13 +399,13 @@
 
   <h3>Gate 2: model, with a different rule per category</h3>
   <div class="grid2">
-    <div class="card"><h4>Smartphones</h4><p class="small">Marketing words are stripped ("5G", "AI Smartphone", spec figures). The remaining <strong>distinguishing tokens</strong> (anything with a digit, or a variant word such as Pro, Ultra, Plus, Lite, FE, Fold) must be <strong>identical sets</strong>, and every series word must be present too (POP X ≠ POVA X). Names with neither (iPhone Duo) must match word for word. Amazon's "Model Name" field is preferred to the title.</p>
+    <div class="card"><h4>Smartphones</h4><p class="small">Marketing words and spec figures are stripped. The <strong>distinguishing tokens</strong> (anything with a digit, or a variant word such as Pro, Ultra, Plus, Lite, FE) must be <strong>identical sets</strong>, and every series word must be present (POP X ≠ POVA X), except umbrella words stores drop ("Samsung M36" is the Galaxy M36). <strong>5G and 4G are different phones</strong>: a listing stating the other network is rejected, and one stating the same network ranks first.</p>
     <p class="small mono" style="color:#a8321f">Galaxy S24 vs Galaxy S22 → missing [s24], extra [s22]</p></div>
-    <div class="card"><h4>Televisions</h4><p class="small">The manufacturer <strong>model code</strong> decides. An exact code match scores 1.0. A series-level match (Croma's "NU870B" inside Amazon's "43NU870BPLA") is accepted at 0.75 and labelled as such. If neither side shows a code, the series words must be ≥60% similar.</p>
+    <div class="card"><h4>Televisions</h4><p class="small">The manufacturer <strong>model code</strong> decides, read from Flipkart's product page or Croma's search summary. An exact code scores 1.0. A revision suffix is a different set (K-55S25B ≠ K-55S25BM2); a one-letter regional variant (K-55S25EM2) or a series code (Croma's "NU870B" for "43NU870BPLA") is accepted at lower confidence.</p>
     <p class="small mono" style="color:#1e6b52">43NU870BPLA vs NU870B → series match</p></div>
-    <div class="card"><h4>Sneakers</h4><p class="small">A matching style code (e.g. <code>DD8959-100</code>) is an instant match. Otherwise the model words must match <strong>exactly, both ways</strong> once generic words ("running shoes", "for men") are removed, and version words (Mid, Low, Comfort, Waterproof, Slip-Ins) are checked across the whole title. Aliases fix spelling: Lo → Low, NN → Next Nature.</p>
-    <p class="small mono" style="color:#a8321f">Court Vision Low Suede vs Low Next Nature → different</p></div>
-    <div class="card"><h4>T-shirts, polos, jerseys</h4><p class="small">First, the <strong>style code</strong>: Amazon's style number equal to the store's style code is a confirmed match. Otherwise garment facts are read from <strong>all three spec tables</strong>: pattern, fit, sleeve, neck, material. Any fact that differs rejects, and named product lines must agree (Essential ≠ Pique Tipping). At least two strong facts must agree; "it's a cotton t-shirt" counts for nothing. Jerseys need shared team or event words.</p>
+    <div class="card"><h4>Sneakers</h4><p class="small">A matching style code (e.g. <code>177288-MVE</code>) is an instant match. Otherwise <strong>every Amazon model word</strong> must be on the listing: title, Flipkart's model name or Myntra's collection name ("Nike Women Leather Sneakers" is a Court Vision Alta). Descriptive extras pass (Leather, Road); an extra name word is a sub-model (Malden Street). Version words must agree; low top is the default.</p>
+    <p class="small mono" style="color:#a8321f">Chuck Taylor All Star vs … Malden Street → extra name</p></div>
+    <div class="card"><h4>T-shirts, polos, jerseys</h4><p class="small">First, the <strong>style code</strong>; jerseys sold as plain T-shirts are found this way (IU1397 is the Manchester United home kit). Jerseys without one need team, season and kit to agree. Other garments: pattern, fit, sleeve, neck and material must not differ, two strong facts must agree, a named line (Essential, 025) must appear on the listing or its description, and extra design details or multi-packs reject.</p>
     <p class="small mono" style="color:#a8321f">Full-sleeve polo vs half-sleeve polo → sleeve differs</p></div>
   </div>
 
@@ -413,7 +413,7 @@
   <ul>
     <li><strong>Phones:</strong> storage must be equal. RAM must be equal whenever both sides state it; Apple never publishes RAM, so model plus storage decide there.</li>
     <li><strong>TVs:</strong> screen size within ±1 inch, which absorbs 138 cm vs 139.7 cm rounding.</li>
-    <li><strong>Sneakers and apparel:</strong> the primary base colour must match, either exactly or within a family; the wearer must be compatible.</li>
+    <li><strong>Sneakers and apparel:</strong> the store repeating the brand's colour name ("DESERT KHAKI/DARK HAZEL-SAIL") settles it; otherwise the base colour must match, exactly or within a family. The wearer must be compatible.</li>
   </ul>
 
   <h3>Scoring</h3>
@@ -492,21 +492,18 @@ best = max(matches, key=rank)</pre>
   <table class="dense">
     <tr><th style="width:24%">Category</th><th style="width:12%">Links</th><th style="width:34%">Same product found</th><th>Not listed (each reviewed)</th></tr>
     <tr><td>Smartphones</td><td>10</td><td>14 of 20 checks</td><td>6, e.g. Croma only had the S22 and S26, not the S24</td></tr>
-    <tr><td>Televisions</td><td>7</td><td>6 of 14</td><td>8, e.g. Flipkart sells Acer's Ultra I series, not the Ultra V</td></tr>
+    <tr><td>Televisions</td><td>7</td><td>7 of 14</td><td>8, e.g. Flipkart sells Acer's Ultra I series, not the Ultra V</td></tr>
     <tr><td>Sneakers</td><td>7</td><td>10 of 14</td><td>4, e.g. stores now stock Nike Revolution 8, not 7</td></tr>
-    <tr><td>T-shirts, polos, jerseys</td><td>17</td><td>14 of 34: 6 by style code, 8 by distinctive details</td><td>20, e.g. plain polos that agree only on basics</td></tr>
+    <tr><td>T-shirts, polos, jerseys</td><td>17</td><td>17 of 34: 7 by style code, 10 by details</td><td>20, e.g. plain polos that agree only on basics</td></tr>
   </table>
 
-  <h3>What testing caught, and what changed</h3>
+  <h3>The reviewer's 20 links: from 6 to 15 fully right</h3>
   <table class="dense">
-    <tr><th style="width:38%">Found by testing new links</th><th>Fix</th></tr>
-    <tr><td>Apparel matched on weak facts: any black cotton tee of the brand passed.</td><td>Style codes first; facts from all three spec tables; "type" and "material" no longer count as evidence; default-only matches no longer count.</td></tr>
-    <tr><td>Oversized tee matched a slim-fit henley.</td><td>When a listing contradicts itself, the title wins over default spec fields.</td></tr>
-    <tr><td>Puma "Essential" polo matched a "Pique Tipping" polo.</td><td>Named product lines must agree.</td></tr>
-    <tr><td>Skechers Go Walk Flex matched the Waterproof Slip-Ins version.</td><td>Version words are read from the whole title.</td></tr>
-    <tr><td>A phone was rejected because its title said "45W Fast Charger".</td><td>Breadcrumbs and specs outrank accessory words.</td></tr>
-    <tr><td>Tecno "POP X" would have matched "POVA X".</td><td>Every series word must match, not just numbers.</td></tr>
-    <tr><td>A t-shirt showed no Amazon price; "Available to ship" read as out of stock.</td><td>Read only the buy-box price, never "the first price on the page"; parse Amazon's stock phrases explicitly.</td></tr>
+    <tr><th style="width:17%">Category</th><th style="width:11%">Before</th><th style="width:11%">Now</th><th>What changed / what remains</th></tr>
+    <tr><td>Smartphones</td><td>3 / 5</td><td>5 / 5</td><td>"Galaxy" optional (Flipkart's "Samsung M36"); 5G vs 4G (REDMI A7 Pro 5G); Amazon holding page retried.</td></tr>
+    <tr><td>Televisions</td><td>2 / 5</td><td>5 / 5</td><td>Croma's summary carries the code; revision suffixes reject (K-55S25B); codes searched as written ("L32MB-FIN").</td></tr>
+    <tr><td>Sneakers</td><td>1 / 5</td><td>3 / 5</td><td>Extra descriptive words, low-top default, model-name and collection fields, brand colour names. Revolution 8 (both stores) never appears in store search.</td></tr>
+    <tr><td>T-shirts, polos, jerseys</td><td>0 / 5</td><td>2 / 5</td><td>Jerseys sold as T-shirts found by style code; Myntra descriptions confirm lines; packs rejected. teamLIGA and two Myntra listings never appear in search.</td></tr>
   </table>
 
   <div class="grid2" style="margin-top: 4mm;">

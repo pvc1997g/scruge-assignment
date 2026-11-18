@@ -1,0 +1,45 @@
+# Reviewer's 20 links (2026-11-18 review). Expected result per store in the comment.
+# Smartphones
+# M36: Flipkart listed (itmf77ec4e8758a8), Croma not listed
+https://www.amazon.in/dp/B0FDB9ZCTD
+# A55: Flipkart found, Croma not listed
+https://www.amazon.in/dp/B0CWPC2W5V
+# REDMI A7 Pro 5G: both stores only have the 4G model -> not listed on both
+https://www.amazon.in/dp/B0GS5SM6JR
+# iPhone 18 Pro 512GB Silver: found on both
+https://www.amazon.in/dp/B0HJB3GZ2C
+# vivo Y31 5G: Flipkart found, Croma not listed
+https://www.amazon.in/dp/B0H3KZHC8L
+# TVs
+# Sony K55S25BM2: Flipkart wrong (K-55S25B), Croma listed (p/316615)
+https://www.amazon.in/dp/B0F7X5FC43
+# Sony K43S22M2: Flipkart found, Croma listed (p/316033)
+https://www.amazon.in/dp/B0F7WVPWG8
+# LG 43NU870BPLA: found on both
+https://www.amazon.in/dp/B0GTZ9TSDJ
+# Xiaomi 32 F Series: Flipkart listed (itm06c5e7af5cb97), Croma not listed
+https://www.amazon.in/dp/B0F3JM1YP5
+# Samsung 43 Crystal UHD 2026: not listed on both
+https://www.amazon.in/dp/B0GXB76VRW
+# Sneakers
+# Converse M9166: Flipkart itmf3xnhhf46aeej, Myntra 23059432
+https://www.amazon.in/dp/B0000ATCP4
+# Nike W Court Vision Alta: Flipkart itm2c3c4b3deffdc, Myntra 45376546
+https://www.amazon.in/dp/B0GSRDSKYD
+# Skechers W Uno Lite Lighter One: Flipkart itm5cf439bc9082d / itm5afb605967c23, Myntra found
+https://www.amazon.in/dp/B0CJ55P4M8
+# Nike M Revolution 8: Flipkart itm6aea77089d15d, Myntra 43109452
+https://www.amazon.in/dp/B0DPHV2SVJ
+# adidas W Breaknet 3.0: Flipkart not listed, Myntra found
+https://www.amazon.in/dp/B0GFN1LBFG
+# Apparel
+# Man Utd 24/25 home: Flipkart itm7c11def2232b6, Myntra 30777713
+https://www.amazon.in/dp/B0D9JYRZGB
+# TIRO 23: Flipkart itmc1a604341ed7d, Myntra 39599644
+https://www.amazon.in/dp/B0B4CZWYTH
+# Puma teamLIGA: Flipkart itm83e572b3d911d (out of stock), Myntra 28683750
+https://www.amazon.in/dp/B09167TMLD
+# Puma Essential polo: Flipkart found, Myntra wrong (right: 30850258 / 24171074)
+https://www.amazon.in/dp/B0DDTH33PL
+# Levi's 025 black: Flipkart wrong (pack of 2; right itm2602a736e70e8), Myntra wrong (right 12027432)
+https://www.amazon.in/dp/B07XK9H5KF

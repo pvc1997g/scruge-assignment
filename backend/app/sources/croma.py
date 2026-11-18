@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from .. import http
 from ..models import Listing
 from ..normalize import parse_ram, parse_screen_inches, parse_storage
@@ -29,11 +31,13 @@ def search(query: str) -> list[Listing]:
             ram_gb=parse_ram(name) or parse_ram(text),
             storage_gb=parse_storage(name) or parse_storage(text),
             screen_in=parse_screen_inches(name),
+            # Croma's short summary carries the manufacturer code ("E-SONY LED Bravia2 II K-55S25BM2 4K UHD").
+            model_number=p.get("summary") or None,
             # Croma lists the stores/warehouses holding stock; an empty list means nothing can be bought.
             available=bool(stock),
             price=price,
             image=p.get("plpImage"),
-            extra={"code": p.get("code"), "stock_locations": len(stock), "plm_status": p.get("plmStatus")},
+            extra={"text": re.sub(r"<[^>]+>", " ", text), "code": p.get("code"), "stock_locations": len(stock), "plm_status": p.get("plmStatus")},
         ))
     return out
 

@@ -57,34 +57,45 @@ so the whole check usually takes 5–15 seconds.
 ### 3. The checks (every one must pass)
 1. **Brand.** Normalised, so `SAMSUNG` = `Samsung`, and `Redmi` = `Xiaomi`.
 2. **Model.** This is the hard part, and it works differently per category:
-   - **Phones:** we remove marketing words ("5G", "AI Smartphone") and compare the words that *identify* the model:
+   - **Phones:** we remove marketing words ("AI Smartphone") and compare the words that *identify* the model:
      anything with a digit (`S24`, `15`, `CE6`) or a variant word (`Pro`, `Ultra`, `Plus`, `Lite`, `FE`). These must be
-     **identical**, and every series word must be present too. That's how `Galaxy S24` correctly fails against
-     `Galaxy S24 Ultra` and `Galaxy S26`, and `POP X` fails against `POVA X`.
+     **identical**, and every series word must be present too, so `Galaxy S24` fails against `Galaxy S24 Ultra` and
+     `POP X` fails against `POVA X`. Umbrella words a store may drop are optional: Flipkart sells the Galaxy M36 as
+     "Samsung M36 5G". **5G and 4G versions are different phones** (`REDMI A7 Pro 5G` ≠ `REDMI A7 Pro`): a listing
+     that says the other network is rejected, and one that states the same network ranks first.
    - **TVs:** we compare the **manufacturer model code**. Flipkart hides it on search results, so we open the
-     product page to read it. Croma names TVs by series (`LG NU870B`) while Amazon shows the full code
-     (`43NU870BPLA`), so a series match is accepted with slightly lower confidence and the UI says so.
-   - **Sneakers:** a matching style code (e.g. `DD8959-100`) is an instant match. Otherwise the model words must
-     match exactly, both ways, once generic words ("running shoes", "for men") are removed, and version words
-     (`Mid`, `Low`, `Comfort`, `Waterproof`, `Slip-Ins`, `'07`) are checked across the whole title. So
-     `Smashic` ≠ `Smashic Comfort` and `Court Vision Low Suede` ≠ `Court Vision Low Next Nature`.
+     product page; Croma's search data carries it in a short summary (`E-SONY LED Bravia2 II K-55S25BM2`). A
+     revision suffix makes a different TV (`K-55S25B` ≠ `K-55S25BM2`). A one-letter regional variant of the same
+     code (`K-55S25EM2`) and a series-only code (`LG NU870B` for `43NU870BPLA`) are accepted with lower confidence.
+   - **Sneakers:** a matching style code (e.g. `177288-MVE`) is an instant match, and we look for it in the store's
+     model-name field too. Otherwise every Amazon model word must be on the listing (title, Flipkart's model name,
+     or Myntra's "Collection Name", where Myntra often hides it: "Nike Women Leather Sneakers" is a *Court Vision
+     Alta*). Descriptive extras are fine (`Leather`, `Road`, `Low Top`), but an extra name word is a sub-model and
+     rejects (`Chuck Taylor All Star` ≠ `Chuck Taylor All Star Malden Street`). Version words (`Mid`, `Comfort`,
+     `Waterproof`, `Slip-Ins`, `8` vs `7`) must agree, and low top is the default when Amazon doesn't say.
    - **T-shirts / polos / jerseys:** clothes rarely have model names, so we use the best evidence available:
      1. **Style code.** If Amazon's style number equals the store's style code, it's the same garment (100%). A long,
-        identical code names one colour variant, so it also settles the colour when the colour name is unusual
-        (Amazon's "Gibraltar Sea" is Flipkart's "Blue").
-     2. **Garment facts from all three spec tables:** **pattern** (solid / printed / striped), **fit**
-        (slim / regular / oversized), **sleeve** and **neck**, plus **material**. Any fact that differs rejects;
-        named product lines must agree (Puma *Essential* ≠ *Pique Tipping*); at least two strong facts must agree.
-        "It's a cotton t-shirt" counts for nothing.
-     3. If only the default facts agree (solid, short sleeve, round neck: true of most plain tees), that is **not**
+        identical code names one colour variant, so it also settles the colour when the colour name is unusual.
+        Stores often list a jersey as a plain T-shirt ("ADIDAS Men Graphic Print Crew Neck T-Shirt" is the
+        Manchester United 24/25 home kit, style code `IU1397`), so jerseys with a code get extra searches and
+        more product pages opened.
+     2. **Jerseys without a code:** the team or line name, the season (`24/25`, `TIRO 23`) and the kit (home / away)
+        must agree. Print and fit labels are ignored for kits, because stores fill them in inconsistently.
+     3. **Other garments, from all spec tables:** **pattern**, **fit**, **sleeve**, **neck** and **material** must
+        not differ, and at least two strong facts must agree. If Amazon names a product line (Puma *Essential*,
+        Levi's *025*), the listing must mention it in its title, model name or description. A design detail Amazon's
+        garment doesn't have rejects (contrast sleeves, tipping, jacquard collar), and so does a multi-pack.
+     4. If only the default facts agree (solid, short sleeve, round neck: true of most plain tees), that is **not**
         enough to say it's the same garment, so it doesn't count. We only ever show definite matches.
 3. **The category's extra rule.**
    - Phones: storage must be equal. RAM must be equal whenever both sites state it (Apple doesn't publish RAM,
      so model + storage decide there).
    - TVs: screen size must be equal (±1 inch, to absorb 138 cm vs 139.7 cm rounding).
-   - Sneakers / apparel: base colour must match (`Onyx` → black, `Gibraltar Sea` → blue, `Navy` ≈ blue). A real colour
-     word in the name wins over a descriptive one, so `Midnight Blue` is blue. An exact colour scores higher
-     than a "same family" colour. Who it's for must also be compatible: men's ≠ women's, but unisex fits both.
+   - Sneakers / apparel: if the store repeats the brand's own colour name (`DESERT KHAKI/DARK HAZEL-SAIL`,
+     `Shimmer`, `BLACK (RED)`), that settles it. Otherwise base colour must match (`Onyx` → black, `Gibraltar Sea`
+     → blue, `Sail` → off-white, `Navy` ≈ blue). A real colour word in the name wins over a descriptive one, so
+     `Midnight Blue` is blue. An exact colour scores higher than a "same family" colour. Who it's for must also be
+     compatible: men's ≠ women's, but unisex fits both.
 
 ### 4. Pick the winner and check stock
 Phones are listed once per colour, so several listings can pass every check. For phones we pick, in order:
@@ -107,5 +118,7 @@ the API's `reasons` field and printed by `scripts/try_link.py`, which makes the 
   (`backend/app/sources/*.py`).
 - Plain garments without a style code can't be told apart reliably (two plain black polos from one brand look the
   same on paper). Rather than guess, those are reported as Not listed.
+- We can only judge what a store's search shows us. Some listings, mostly sold-out ones, never appear in the
+  store's search results however the query is phrased, so they can't be found.
 - Stock is checked without a delivery pincode, so it means "the platform is selling it", not "it can reach your
   address".
