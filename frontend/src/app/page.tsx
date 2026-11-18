@@ -220,10 +220,8 @@ function ReferenceRow({ src }: { src: SourceProduct }) {
 }
 
 function StoreRow({ r, amazonPrice, delay }: { r: PlatformResult; amazonPrice: number | null; delay: number }) {
-  const [open, setOpen] = useState(false);
   const found = r.status === "in_stock" || r.status === "out_of_stock";
   const diff = found && r.price != null && amazonPrice != null ? Math.round(r.price - amazonPrice) : null;
-  const panelId = `why-${r.platform}`;
 
   return (
     <div className={`reveal reveal-${Math.min(delay + 2, 4)} border-b border-rule`}>
@@ -239,21 +237,14 @@ function StoreRow({ r, amazonPrice, delay }: { r: PlatformResult; amazonPrice: n
               )}
               <div className="min-w-0">
                 <p className="text-[0.95rem] leading-snug line-clamp-2">{r.title}</p>
-                {r.confidence != null && r.confidence < 0.95 && (
-                  <p className={`mt-0.5 text-xs ${r.confidence < 0.75 ? "text-sold" : "text-muted"}`}>
-                    {r.confidence < 0.75
-                      ? `Possible match, ${Math.round(r.confidence * 100)}% confidence. Check the details before buying.`
-                      : `Likely match, ${Math.round(r.confidence * 100)}% confidence`}
-                  </p>
-                )}
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted">
-              {r.status === "not_listed"
-                ? `No listing passed every check (${r.candidates_checked} looked at).`
-                : "The store didn't respond, so we can't say either way."}
-            </p>
+            !r.note && (
+              <p className="text-sm text-muted">
+                {`${STORE[r.platform] ?? r.platform} doesn't sell this product (${r.candidates_checked} listings checked).`}
+              </p>
+            )
           )}
           {r.note && <p className="mt-2 text-sm text-sold">{r.note}</p>}
         </div>
@@ -279,14 +270,6 @@ function StoreRow({ r, amazonPrice, delay }: { r: PlatformResult; amazonPrice: n
         </div>
 
         <div role="cell" className="flex items-center gap-4 md:justify-end">
-          <button
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            aria-controls={panelId}
-            className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
-          >
-            {open ? "Hide" : "Why"}
-          </button>
           {found && r.url && (
             <a
               href={r.url}
@@ -303,35 +286,8 @@ function StoreRow({ r, amazonPrice, delay }: { r: PlatformResult; amazonPrice: n
           )}
         </div>
       </div>
-
-      {open && (
-        <div id={panelId} className="mb-4 grid gap-x-4 md:grid-cols-[8rem_1fr]">
-          <div className="hidden md:block" />
-          <div className="rounded-md bg-surface px-4 py-3 text-sm ring-1 ring-rule">
-            {r.query && (
-              <p className="text-muted">
-                Searched {STORE[r.platform]} for <span className="text-ink">“{r.query}”</span>
-              </p>
-            )}
-            <ul className="mt-2 space-y-1">
-              {r.reasons.map((why, i) => (
-                <li key={i} className="flex gap-2">
-                  <span aria-hidden className={`mt-[0.55rem] h-1 w-1 shrink-0 rounded-full ${reasonTone(why)}`} />
-                  <span>{why}</span>
-                </li>
-              ))}
-            </ul>
-            {r.error && <p className="mt-2 text-brick">{r.error}</p>}
-          </div>
-        </div>
-      )}
     </div>
   );
-}
-
-function reasonTone(why: string) {
-  if (/differ|different|missing|not found|too little|unknown|no listing|couldn/i.test(why)) return "bg-brick";
-  return "bg-stock";
 }
 
 /* ------------------------------------------------------------------ status */
@@ -351,11 +307,6 @@ const STATUS: Record<Status, { label: string; className: string; mark: React.Rea
     label: "Not listed",
     className: "text-muted",
     mark: <span className="h-2.5 w-2.5 rounded-full border-2 border-rule-strong" />,
-  },
-  error: {
-    label: "Couldn't check",
-    className: "text-brick",
-    mark: <span className="h-2.5 w-2.5 rotate-45 bg-brick" />,
   },
 };
 

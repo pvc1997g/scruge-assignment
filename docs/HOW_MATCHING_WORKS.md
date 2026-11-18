@@ -29,8 +29,8 @@ Imagine you have a toy car, and you want to know if two other toy shops sell **t
    - The shop has it, but the shelf is empty right now → **Out of stock** 🟠 (we still give you the link)
    - None of the shop's toys passed the game → **Not listed** ⚪
 
-   And if a shop's door was locked (the website didn't answer), we say **"Couldn't check"**. We never pretend that
-   means "they don't sell it".
+   If a shop's door was locked (the website didn't answer, even when we knocked twice), we still say **Not listed**,
+   but we add a little note: *"we couldn't get in, try again."* We never pretend we looked when we didn't.
 
 That's it! **Read the box → search the shop → check every toy, one thing at a time → see if it's on the shelf.**
 
@@ -69,18 +69,21 @@ so the whole check usually takes 5–15 seconds.
      (`Mid`, `Low`, `Comfort`, `Waterproof`, `Slip-Ins`, `'07`) are checked across the whole title. So
      `Smashic` ≠ `Smashic Comfort` and `Court Vision Low Suede` ≠ `Court Vision Low Next Nature`.
    - **T-shirts / polos / jerseys:** clothes rarely have model names, so we use the best evidence available:
-     1. **Style code.** If Amazon's style number equals the store's style code, it's the same garment (100%).
+     1. **Style code.** If Amazon's style number equals the store's style code, it's the same garment (100%). A long,
+        identical code names one colour variant, so it also settles the colour when the colour name is unusual
+        (Amazon's "Gibraltar Sea" is Flipkart's "Blue").
      2. **Garment facts from all three spec tables:** **pattern** (solid / printed / striped), **fit**
         (slim / regular / oversized), **sleeve** and **neck**, plus **material**. Any fact that differs rejects;
         named product lines must agree (Puma *Essential* ≠ *Pique Tipping*); at least two strong facts must agree.
-        "It's a cotton t-shirt" counts for nothing. These are shown as **likely** matches (up to 80%).
-     3. If only the default facts agree (solid, short sleeve, round neck: true of most plain tees), the result is
-        labelled a **possible** match (about 70%) with "check the details before buying".
+        "It's a cotton t-shirt" counts for nothing.
+     3. If only the default facts agree (solid, short sleeve, round neck: true of most plain tees), that is **not**
+        enough to say it's the same garment, so it doesn't count. We only ever show definite matches.
 3. **The category's extra rule.**
    - Phones: storage must be equal. RAM must be equal whenever both sites state it (Apple doesn't publish RAM,
      so model + storage decide there).
    - TVs: screen size must be equal (±1 inch, to absorb 138 cm vs 139.7 cm rounding).
-   - Sneakers / apparel: base colour must match (`Onyx` → black, `Navy` ≈ blue). An exact colour scores higher
+   - Sneakers / apparel: base colour must match (`Onyx` → black, `Gibraltar Sea` → blue, `Navy` ≈ blue). A real colour
+     word in the name wins over a descriptive one, so `Midnight Blue` is blue. An exact colour scores higher
      than a "same family" colour. Who it's for must also be compatible: men's ≠ women's, but unisex fits both.
 
 ### 4. Pick the winner and check stock
@@ -93,16 +96,16 @@ to the one you can actually buy. Stock comes from the platform itself:
 - **Croma:** the list of stores holding stock, from Croma's search API (empty → out of stock).
 - **Myntra:** whether any size is available.
 
-### 5. Show the reasoning
-Every result has a **"Why?"** button listing exactly which checks passed, or why the near-misses were rejected
-(e.g. *"Redmi Note 17 Pro → different model (missing 14, extra 17)"*). This makes the system easy to trust and
-easy to debug.
+### 5. Keep the reasoning
+The website keeps it simple: one result per store. Behind it, every result records exactly which checks passed,
+or why the near-misses were rejected (e.g. *"Redmi Note 17 Pro → different model (missing 14, extra 17)"*). It's in
+the API's `reasons` field and printed by `scripts/try_link.py`, which makes the system easy to trust and debug.
 
 ### Known limits
 - No paid APIs or LLMs: everything is rules plus the platforms' own public pages and data.
 - If a platform changes its page layout, its adapter needs updating. Each platform lives in its own small file
   (`backend/app/sources/*.py`).
 - Plain garments without a style code can't be told apart reliably (two plain black polos from one brand look the
-  same on paper). Those matches are labelled "possible", never confirmed, and the "Why?" panel shows the evidence.
+  same on paper). Rather than guess, those are reported as Not listed.
 - Stock is checked without a delivery pincode, so it means "the platform is selling it", not "it can reach your
   address".

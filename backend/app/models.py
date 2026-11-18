@@ -16,7 +16,8 @@ class Status(str, Enum):
     IN_STOCK = "in_stock"
     OUT_OF_STOCK = "out_of_stock"
     NOT_LISTED = "not_listed"
-    ERROR = "error"  # we could not check (blocked / site down) - never confuse with NOT_LISTED
+    # Exactly the three results the brief asks for. A site we couldn't reach is shown as NOT_LISTED
+    # with a note saying so (PlatformResult.note), never silently.
 
 
 PLATFORMS_BY_CATEGORY = {

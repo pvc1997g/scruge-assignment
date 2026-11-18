@@ -1,4 +1,4 @@
-# Same Product Finder
+# Scruge
 
 Paste an Amazon.in product link and see whether the **same product** is sold on the other platforms:
 
@@ -9,13 +9,16 @@ Paste an Amazon.in product link and see whether the **same product** is sold on 
 | Sneakers | Flipkart, Myntra | Colour |
 | T-shirts, polos, jerseys | Flipkart, Myntra | Colour |
 
-Each platform shows one of: **In stock** (with link), **Out of stock** (with link), **Not listed**, or
-**Couldn't check** (the site didn't respond, which is never reported as "not listed").
+Each platform shows exactly one of three results, each shown differently: **In stock** (with link),
+**Out of stock** (with link), or **Not listed**. If a site doesn't respond even after a retry, it is shown as
+Not listed with a visible note saying the site couldn't be checked, so a blocked site is never passed off as a
+store that doesn't sell the product.
 
 ## Documents
 
-- **[The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf)**: how matching works, explained for a five-year-old (11-page picture book).
-- **[How a link becomes an answer](docs/Scruge-Technical-Walkthrough.pdf)**: the end-to-end technical walkthrough, with architecture, a real request traced step by step, the matching rules, design decisions and test results (12 pages).
+- **[How Scruge finds the same product](docs/Scruge-Explained-Like-Im-5.docx)**: the simple explanation for a five-year-old, as the brief asks (Word document, 2 pages).
+- [The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf): the same explanation as an illustrated picture book (11 pages).
+- [How a link becomes an answer](docs/Scruge-Technical-Walkthrough.pdf): the end-to-end technical walkthrough, with architecture, a real request traced step by step, the matching rules, design decisions and test results (12 pages).
 - [`docs/HOW_MATCHING_WORKS.md`](docs/HOW_MATCHING_WORKS.md): the same explanation as text, also served in the app at `/how-it-works`.
 
 The PDFs are rendered from `docs/pdf/*.html` with headless Chrome.
@@ -107,12 +110,15 @@ frontend/src/app/
 
 ## Design decisions
 
-- **No paid APIs, no LLM.** Matching is deterministic rules, so every decision is explainable: the UI's
-  "Why?" button shows which checks passed and why near-misses were rejected.
+- **No paid APIs, no LLM.** Matching is deterministic rules, so every decision is explainable: each result's
+  `reasons` (in the API and `scripts/try_link.py`) list which checks passed and why near-misses were rejected.
 - **Hard gates, then score.** A candidate must pass *every* check (brand, model, category attribute). The score
   only ranks candidates that already passed. "Almost the same" never counts as a match.
-- **"Not listed" vs "Couldn't check" are different.** A network failure or block is reported as an error,
-  never as "the platform doesn't sell it".
+- **Only definite matches count.** A listing is shown as found only when it passes every check; there are no
+  "maybe" results. A garment that agrees only on details true of most plain tees (solid, short sleeve, round
+  neck) is not counted.
+- **Exactly three results.** A site that doesn't answer gets one full retry with a fresh session; if it still
+  fails, the row says Not listed *and* says the site couldn't be checked.
 - **Platforms in parallel, 15-minute in-memory cache** per Amazon product.
 - **Product pages only when needed.** Flipkart hides colour (fashion) and model codes (TVs) on search cards, so
   product pages are opened only for plausible candidates (at most 8 per search).
@@ -122,5 +128,5 @@ frontend/src/app/
 - Scrapers depend on page structure; a platform redesign means updating one file in `sources/`.
 - Datacenter IPs (cloud hosting) are more likely to be blocked by these sites than a home connection.
 - Apparel without a style code is matched on garment facts (type, pattern, fit, sleeve, neck, material) plus
-  colour and gender, so confidence is capped at 80% (70% when only basic details agree, labelled "possible").
+  colour and gender. If only basic details agree, it's reported as Not listed rather than guessed.
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.

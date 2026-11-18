@@ -1,4 +1,5 @@
-export type Status = "in_stock" | "out_of_stock" | "not_listed" | "error";
+// Exactly the three results the brief asks for.
+export type Status = "in_stock" | "out_of_stock" | "not_listed";
 
 export interface SourceProduct {
   platform: string;

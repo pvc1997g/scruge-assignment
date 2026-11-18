@@ -157,6 +157,14 @@ COLOUR_SYNONYMS = {
     "cblack": "black", "ftwwht": "white", "cwhite": "white", "owhite": "white", "broyal": "blue", "conavy": "navy",
     "dkblue": "blue", "royblu": "blue", "grefiv": "grey", "grefou": "grey", "grethr": "grey", "gretwo": "grey",
     "gresix": "grey", "silvmt": "silver", "goldmt": "gold", "scarle": "red", "betsca": "red", "carbon": "grey",
+    # Fashion colour names ("Gibraltar Sea", "Forest Night", "Petrol"). Real colour words in the same name win,
+    # so "Sea Green" stays green and "Midnight Blue" stays blue.
+    "sea": "blue", "ocean": "blue", "marine": "navy", "ink": "navy", "petrol": "blue", "sapphire": "blue",
+    "royal": "blue", "cerulean": "blue", "cyan": "blue", "steel": "grey", "stone": "grey", "smoke": "grey",
+    "sand": "beige", "oatmeal": "beige", "taupe": "brown", "mocha": "brown", "espresso": "brown",
+    "forest": "green", "bottle": "green", "jade": "green", "moss": "green", "pistachio": "green",
+    "plum": "purple", "fuchsia": "pink", "blush": "pink", "cherry": "red", "brick": "red", "salmon": "orange",
+    "apricot": "orange", "ochre": "yellow",
 }
 
 # Colours that are commonly treated as interchangeable shades of each other.
@@ -175,11 +183,14 @@ def colour_words(text: Optional[str]) -> list[str]:
     if not text:
         return []
     t = clean(text).lower().replace("off-white", "offwhite").replace("off white", "offwhite").replace("multi-colour", "multi")
-    out = []
-    for tok in re.findall(r"[a-z]+", t):
-        base = tok if tok in BASE_COLOURS else COLOUR_SYNONYMS.get(tok)
-        if base and base not in out:
-            out.append(base)
+    toks = re.findall(r"[a-z]+", t)
+    # Real colour words first, in order; descriptive names only when no real colour word is given.
+    out = [tok for i, tok in enumerate(toks) if tok in BASE_COLOURS and tok not in toks[:i]]
+    if not out:
+        for tok in toks:
+            base = COLOUR_SYNONYMS.get(tok)
+            if base and base not in out:
+                out.append(base)
     return out
 
 
@@ -359,6 +370,13 @@ def core_style_code(code: Optional[str]) -> str:
     c = re.split(r"[-\s](?=[a-z]{3,}(\s|$))", c)[0]
     c = re.sub(r"[^a-z0-9]", "", c)
     return c if len(c) >= 5 and re.search(r"\d", c) else ""
+
+
+def style_codes_identical(a: Optional[str], b: Optional[str]) -> bool:
+    """The full code is the same and long enough to name one colour variant ('PCKPSRGPY66452').
+    Short codes like Puma's '687093' are shared by every colour of a style, so they don't qualify."""
+    ca, cb = core_style_code(a), core_style_code(b)
+    return bool(ca) and ca == cb and len(ca) >= 10
 
 
 def style_codes_match(a: Optional[str], b: Optional[str]) -> bool:

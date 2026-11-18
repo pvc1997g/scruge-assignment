@@ -7,6 +7,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 from . import http
 from .matcher import match, source_model_tokens
@@ -94,6 +95,19 @@ def _quick_prefilter(src: Listing, cand: Listing) -> bool:
     return match(src, probe).is_match
 
 
+PLATFORM_NAMES = {"flipkart": "Flipkart", "croma": "Croma", "myntra": "Myntra"}
+
+
+def unreachable(platform: str, error: str, query: Optional[str] = None) -> PlatformResult:
+    """The brief allows three results, so a site we couldn't reach is 'Not listed', with a note saying why."""
+    name = PLATFORM_NAMES[platform]
+    return PlatformResult(
+        platform=platform, status=Status.NOT_LISTED, query=query, error=error,
+        note=f"{name} didn't respond, so we couldn't check it. Try again in a minute.",
+        reasons=[f"Couldn't reach {name} ({error}), so this is not a confirmed 'not listed'."],
+    )
+
+
 def check_platform(src: Listing, platform: str) -> PlatformResult:
     adapter = ADAPTERS[platform]
     queries = build_queries(src, platform)
@@ -158,12 +172,15 @@ def check_platform(src: Listing, platform: str) -> PlatformResult:
 
     if best is None:
         if errors and not candidates:
-            return PlatformResult(platform=platform, status=Status.ERROR, error="; ".join(errors[:2]),
-                                  query=queries[0] if queries else None,
-                                  reasons=["Couldn't reach the site, so we can't say whether it sells this."])
+            return unreachable(platform, "; ".join(errors[:2]), query=queries[0] if queries else None)
         reasons = ["No listing passed all the checks."] + rejections[:4]
+        note = None
+        if errors:
+            note = (f"{PLATFORM_NAMES[platform]} didn't answer every search, so this may be incomplete. "
+                    "Try again in a minute.")
         return PlatformResult(platform=platform, status=Status.NOT_LISTED, query=used_query,
-                              candidates_checked=len(candidates), reasons=reasons)
+                              candidates_checked=len(candidates), reasons=reasons, note=note,
+                              error="; ".join(errors[:2]) or None)
 
     score, item, reasons = best
     note = None
@@ -297,9 +314,17 @@ def compare(url: str, use_cache: bool = True) -> dict:
 
 
 def _guarded(src: Listing, platform: str) -> PlatformResult:
-    try:
-        return check_platform(src, platform)
-    except Exception as e:  # never let one platform break the whole response
-        log.exception("platform %s failed", platform)
-        return PlatformResult(platform=platform, status=Status.ERROR, error=f"{type(e).__name__}: {e}",
-                              reasons=["Something went wrong while checking this site."])
+    # A site that didn't answer at all gets one more full attempt with a fresh session
+    # before we fall back to "Not listed, couldn't check".
+    result = None
+    for attempt in range(2):
+        try:
+            result = check_platform(src, platform)
+        except Exception as e:  # never let one platform break the whole response
+            log.exception("platform %s failed", platform)
+            result = unreachable(platform, f"{type(e).__name__}: {e}")
+        if not (result.error and result.candidates_checked == 0):
+            return result
+        http.reset_session(platform)
+        time.sleep(1.5)
+    return result

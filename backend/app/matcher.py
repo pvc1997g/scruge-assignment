@@ -17,7 +17,7 @@ import re
 from .models import Category, Listing, MatchVerdict
 from .normalize import (
     VARIANT_WORDS, apparel_facts, brands_match, codes_overlap, colours_match, genders_compatible,
-    core_style_code, is_distinguishing, model_codes, model_tokens, style_codes_match, tokens,
+    core_style_code, is_distinguishing, model_codes, model_tokens, style_codes_identical, style_codes_match, tokens,
 )
 
 
@@ -247,9 +247,10 @@ def _model_check_apparel(src: Listing, cand: Listing, reasons: list[str]) -> tup
 
     if not distinctive and not named and not shared_line:
         # "Solid, short sleeve, round neck" describes nearly every plain tee of that brand and colour.
-        reasons.append("only basic details in common, so this is a possible match, not a confirmed one")
-        return True, 0.3
-    # Without a style code this is a "likely" match: score grows with the evidence but stays below 0.8.
+        # That is not enough to call it the same product, so it doesn't count as found.
+        reasons.append("only basic details in common (true of most plain garments), so not confirmed as the same product")
+        return False, 0.0
+    # Without a style code, score grows with the evidence but stays below 0.8 (shown only in "Why?").
     return True, min(0.55, 0.12 * len(strong) + 0.1 * len(distinctive) + (0.25 if named or shared_line else 0) + 0.15 * sim)
 
 
@@ -311,10 +312,15 @@ def match(src: Listing, cand: Listing) -> MatchVerdict:
         if ok_c is False:
             return MatchVerdict(False, 0.0, reasons + [why])
         if ok_c is None:
-            return MatchVerdict(False, 0.0, reasons + [why])
-        reasons.append(why)
-        if "family" not in why:
-            sim += 0.1  # exact colour beats "same family" (olive vs green)
+            # A colour name we can't read ("Gibraltar Sea") is fine only when the full style code is identical:
+            # long codes name one colour variant, so they already settle the colour.
+            if not style_codes_identical(src.model_number, cand.model_number):
+                return MatchVerdict(False, 0.0, reasons + [why])
+            reasons.append(f"identical style code {src.model_number} fixes the colour ({src.colour or '?'} = {cand.colour or '?'})")
+        else:
+            reasons.append(why)
+            if "family" not in why:
+                sim += 0.1  # exact colour beats "same family" (olive vs green)
 
     score = min(1.0, 0.5 + 0.5 * sim)
     if cat == Category.APPAREL and not any("style code" in r for r in reasons):

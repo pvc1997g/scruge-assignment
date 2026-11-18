@@ -135,7 +135,7 @@
 <section style="break-before: auto;">
   <div class="section-no">Overview</div>
   <h2>One link in, a verdict per store out</h2>
-  <p class="lede">You paste an Amazon.in product link. About four to fifteen seconds later you see, for each relevant store, one of three answers: the same product is <strong>in stock</strong>, it is <strong>out of stock</strong>, or it is <strong>not listed</strong>. A fourth state, <strong>couldn't check</strong>, exists so that a blocked or failed request is never reported as "not listed".</p>
+  <p class="lede">You paste an Amazon.in product link. About four to fifteen seconds later you see, for each relevant store, one of three answers: the same product is <strong>in stock</strong>, it is <strong>out of stock</strong>, or it is <strong>not listed</strong>. Exactly three, as the brief asks. A store that can't be reached is shown as <strong>not listed</strong> with a visible note saying it couldn't be checked, so a failure is never passed off as an absence.</p>
 
   <table>
     <tr><th style="width:30%">Category</th><th style="width:30%">Stores searched</th><th>Must match, besides brand and model</th></tr>
@@ -301,7 +301,7 @@
   <span class="key">"query"</span>: <span class="s">"OnePlus nord ce6 lite 8GB RAM 128GB"</span>, <span class="key">"candidates_checked"</span>: 6,
   <span class="key">"reasons"</span>: [<span class="s">"brand OnePlus matches"</span>, <span class="s">"model ce6 lite matches"</span>, <span class="s">"storage 128GB matches"</span>,
               <span class="s">"RAM 8GB matches"</span>, <span class="s">"same colour (Vivid Mint)"</span>] }</pre>
-    <p>The page shows Amazon as the reference row and one row per store, with the price difference against Amazon (Flipkart: ₹28,099, <strong>₹2,900 less</strong>). The reasons array powers the "Why" panel on each row.</p>
+    <p>The page shows Amazon as the reference row and one row per store, with the price difference against Amazon (Flipkart: ₹28,099, <strong>₹2,900 less</strong>). The page stays as simple as the brief: one result per store, no extra detail.</p>
   </div></div>
 </section>
 
@@ -360,8 +360,8 @@
   <h3>Failure handling</h3>
   <div class="grid2 small" style="gap:4mm 8mm">
     <p style="margin:0"><strong>Retries with a fresh session.</strong> HTTP 401/403/429/5xx and network errors trigger one retry (two for Amazon) with a reset cookie session and back-off.</p>
-    <p style="margin:0"><strong>Errors are not absences.</strong> If every query to a store fails, it reports <span class="pill t-err"><span class="dot d-err"></span>Couldn't check</span>, never <span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span>.</p>
-    <p style="margin:0"><strong>Isolation.</strong> Each store runs in its own guarded thread; an exception in one becomes an error row and the others still answer.</p>
+    <p style="margin:0"><strong>Errors are never silent.</strong> If every query to a store fails, the whole store check is retried once with a fresh session. If it still fails, the row shows <span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span> with the note "didn't respond, try again".</p>
+    <p style="margin:0"><strong>Isolation.</strong> Each store runs in its own guarded thread; an exception in one is contained to that store's row and the others still answer.</p>
     <p style="margin:0"><strong>Captchas.</strong> If Amazon serves one, the session is reset and retried once, then the user is told plainly to try again shortly.</p>
   </div>
 </section>
@@ -417,7 +417,7 @@
   </ul>
 
   <h3>Scoring</h3>
-  <p>For listings that pass, <code>score = 0.5 + 0.5 × similarity</code>, where similarity comes from the model check (1.0 for an exact code or identical tokens). An exact colour adds 0.1 over a family colour for fashion. Apparel has three honest tiers: a <strong>style-code match</strong> scores 1.0; a facts match is capped at <strong>0.8</strong> and shown as "Likely match"; and a match on default facts only (solid, short sleeve, round neck, which describes most plain tees) scores about <strong>0.7</strong> and is shown as "Possible match, check the details before buying".</p>
+  <p>For listings that pass, <code>score = 0.5 + 0.5 × similarity</code>, where similarity comes from the model check (1.0 for an exact code or identical tokens). An exact colour adds 0.1 over a family colour for fashion. For apparel, a <strong>style-code match</strong> scores 1.0 and a match on distinctive details is capped at <strong>0.8</strong>. A garment that agrees only on default facts (solid, short sleeve, round neck, which describes most plain tees) is <strong>rejected</strong>: only definite matches are shown. The score only ranks candidates; it is never shown to the user as a "maybe".</p>
 </section>
 
 <!-- ============================================================ 6 WINNER + STOCK -->
@@ -444,16 +444,15 @@ best = max(matches, key=rank)</pre>
     </div>
   </div>
 
-  <h3>The four outcomes</h3>
+  <h3>The three outcomes</h3>
   <table>
     <tr><th style="width:22%">Status</th><th style="width:40%">When</th><th>Shown as</th></tr>
     <tr><td><span class="pill t-in"><span class="dot d-in"></span>In stock</span></td><td>A listing passed every gate and the store says it can be bought.</td><td>Solid green mark, "Buy" button, price and difference from Amazon.</td></tr>
     <tr><td><span class="pill t-out"><span class="dot d-out"></span>Out of stock</span></td><td>A listing passed every gate but the store says it can't be bought right now.</td><td>Half-filled amber mark, "View" button.</td></tr>
-    <tr><td><span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span></td><td>Searches succeeded, but no listing passed every gate.</td><td>Hollow ring, how many listings were checked, and why the closest ones failed.</td></tr>
-    <tr><td><span class="pill t-err"><span class="dot d-err"></span>Couldn't check</span></td><td>The store could not be reached at all.</td><td>Red mark; explicitly not a claim that the store doesn't sell it.</td></tr>
+    <tr><td><span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span></td><td>No listing passed every gate, or the store couldn't be reached even after a retry.</td><td>Hollow ring and how many listings were checked; an unreachable store adds a "didn't respond, try again" note.</td></tr>
   </table>
 
-  <div class="callout"><p><strong>Explainability is a feature, not a debug log.</strong> Every row's "Why" panel lists the query used and each check that passed, or, for "not listed", the closest rejected listings with the gate they failed ("Redmi Note 17 Pro → different model (missing 14, extra 17)"). It lets a user trust a verdict, and it let me find almost every bug in this project in seconds.</p></div>
+  <div class="callout"><p><strong>Every verdict is explainable.</strong> Each result carries a <code>reasons</code> list (in the API and <code>scripts/try_link.py</code>): the query used and each check that passed, or, for "not listed", the closest rejected listings with the gate they failed ("Redmi Note 17 Pro → different model (missing 14, extra 17)"). The website stays simple; this is what let me find almost every bug in this project in seconds.</p></div>
 </section>
 
 <!-- ============================================================ 7 DECISIONS -->
@@ -468,7 +467,8 @@ best = max(matches, key=rank)</pre>
     <tr><td>Facts before text</td><td>Comparing normalised RAM, size, colour and codes is robust to every store's writing style.</td><td>Each new attribute needs a parser and tests.</td></tr>
     <tr><td>Parallel stores, sequential queries</td><td>Total time ≈ slowest store. Queries stop at the first that yields a match, keeping request volume low.</td><td>A threaded design; an async client would scale further.</td></tr>
     <tr><td>Product pages only when needed</td><td>Flipkart cards lack colour and TV codes; opening at most 8 pre-filtered pages per query bounds cost.</td><td>A true match ranked beyond the shortlist can be missed.</td></tr>
-    <tr><td>"Couldn't check" as its own state</td><td>Silent failure reported as "not listed" would be a confident wrong answer.</td><td>One more state for users to learn.</td></tr>
+    <tr><td>Exactly three results, failures annotated</td><td>The brief defines three results. A blocked store becomes "not listed" with an explicit note, never silently.</td><td>The status alone can't tell absence from failure; the note has to.</td></tr>
+    <tr><td>Only definite matches</td><td>"Same product" is the question; a "maybe" pushes the decision back to the user.</td><td>Plain garments with no style code are reported as not listed.</td></tr>
     <tr><td>In-memory 15-minute cache</td><td>Instant repeats, kind to the stores, zero infrastructure.</td><td>Lost on restart and not shared across instances.</td></tr>
     <tr><td>Browser-like requests</td><td>The stores serve the same public pages a shopper sees.</td><td>Depends on page structure; cloud IPs are blocked more often than home connections.</td></tr>
   </table>
@@ -487,20 +487,20 @@ best = max(matches, key=rank)</pre>
 <section>
   <div class="section-no">8 &nbsp;Evaluation, limits and next steps</div>
   <h2>Tested on real links</h2>
-  <p>A fixed set of 40 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, 80 store checks in all. It includes deliberately awkward cases: a page without breadcrumbs, a phone title that mentions a charger, adidas colour codes, a women's tee with a one-word title, a licensed jersey and an unbranded knock-off. Every result was reviewed by hand; stock states change daily.</p>
+  <p>A fixed set of 41 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, 82 store checks in all. It includes deliberately awkward cases: a page without breadcrumbs, a phone title that mentions a charger, adidas colour codes, a fancy colour name ("Gibraltar Sea"), a women's tee with a one-word title, a licensed jersey and an unbranded knock-off. Every result was reviewed by hand; stock states change daily.</p>
 
   <table class="dense">
     <tr><th style="width:24%">Category</th><th style="width:12%">Links</th><th style="width:34%">Same product found</th><th>Not listed (each reviewed)</th></tr>
     <tr><td>Smartphones</td><td>10</td><td>14 of 20 checks</td><td>6, e.g. Croma only had the S22 and S26, not the S24</td></tr>
     <tr><td>Televisions</td><td>7</td><td>6 of 14</td><td>8, e.g. Flipkart sells Acer's Ultra I series, not the Ultra V</td></tr>
     <tr><td>Sneakers</td><td>7</td><td>10 of 14</td><td>4, e.g. stores now stock Nike Revolution 8, not 7</td></tr>
-    <tr><td>T-shirts, polos, jerseys</td><td>16</td><td>20 of 32: 5 confirmed by style code, 9 likely, 6 flagged "possible"</td><td>12, e.g. a full-sleeve polo whose only candidates were half-sleeve</td></tr>
+    <tr><td>T-shirts, polos, jerseys</td><td>17</td><td>14 of 34: 6 by style code, 8 by distinctive details</td><td>20, e.g. plain polos that agree only on basics</td></tr>
   </table>
 
   <h3>What testing caught, and what changed</h3>
   <table class="dense">
     <tr><th style="width:38%">Found by testing new links</th><th>Fix</th></tr>
-    <tr><td>Apparel matched on weak facts: any black cotton tee of the brand passed.</td><td>Style codes first; facts from all three spec tables; "type" and "material" no longer count as evidence; default-only matches labelled "possible".</td></tr>
+    <tr><td>Apparel matched on weak facts: any black cotton tee of the brand passed.</td><td>Style codes first; facts from all three spec tables; "type" and "material" no longer count as evidence; default-only matches no longer count.</td></tr>
     <tr><td>Oversized tee matched a slim-fit henley.</td><td>When a listing contradicts itself, the title wins over default spec fields.</td></tr>
     <tr><td>Puma "Essential" polo matched a "Pique Tipping" polo.</td><td>Named product lines must agree.</td></tr>
     <tr><td>Skechers Go Walk Flex matched the Waterproof Slip-Ins version.</td><td>Version words are read from the whole title.</td></tr>
@@ -514,7 +514,7 @@ best = max(matches, key=rank)</pre>
       <h3 style="margin-top:0">Known limits</h3>
       <ul>
         <li>Scrapers depend on page structure; a redesign means updating one adapter file.</li>
-        <li>Plain garments without a style code can't be told apart reliably; those matches are shown as "possible", never as confirmed.</li>
+        <li>Plain garments without a style code can't be told apart reliably; rather than guess, they are reported as not listed.</li>
         <li>Stock is checked without a pincode: "the store is selling it", not "it can reach you".</li>
         <li>Recall is bounded by each store's own search: what it doesn't surface, we can't see.</li>
       </ul>

@@ -50,3 +50,5 @@ https://www.amazon.in/dp/B0DSV3CW9K
 https://www.amazon.in/dp/B076CHQJZP
 https://www.amazon.in/dp/B0FDB5HXTF
 https://www.amazon.in/dp/B0HPNPWFLZ
+# fancy colour name ("Gibraltar Sea") + style code that Flipkart shows; Myntra has no style codes
+https://www.amazon.in/dp/B09XMV1NBL

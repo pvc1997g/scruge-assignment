@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.service import compare  # noqa: E402
 
-ICON = {"in_stock": "●", "out_of_stock": "◐", "not_listed": "○", "error": "✕"}
+ICON = {"in_stock": "●", "out_of_stock": "◐", "not_listed": "○"}
 
 for url in sys.argv[1:]:
     try:
@@ -30,7 +30,9 @@ for url in sys.argv[1:]:
             print(f"      {r['url']}")
         for why in r["reasons"][:5]:
             print(f"      - {why}")
+        if r.get("note"):
+            print(f"      NOTE: {r['note']}")
         if r["error"]:
-            print(f"      ERROR: {r['error']}")
+            print(f"      (site error: {r['error']})")
     if os.environ.get("JSON"):
         print(json.dumps(res, indent=1)[:3000])
