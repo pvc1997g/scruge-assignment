@@ -78,7 +78,8 @@ SHADE_MODIFIERS = {"light", "dark", "deep", "pale", "bright", "medium", "true", 
 
 def shade_words(colour: Optional[str]) -> frozenset:
     words = set()
-    for w in re.findall(r"[a-z]+", (colour or "").lower()):
+    text = re.sub(r"off[\s-]*white", "offwhite", (colour or "").lower())   # "Off White" is one colour, not "off"
+    for w in re.findall(r"[a-z]+", text):
         w = SHADE_ALIASES.get(w, w)
         if len(w) <= 2 or w in BASE_SHADES or w in SHADE_MODIFIERS:
             continue

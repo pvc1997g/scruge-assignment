@@ -82,6 +82,18 @@ def enrich(item: Listing) -> Listing:
     item.extra["text"] = re.sub(r"\s+", " ", re.sub(r"<[^>]+>|&nbsp;", " ", desc))[:1500]
     item.extra["facts"] = apparel_facts_from_specs(attrs)
     item.colour = item.colour or pdp.get("baseColour")
+    # A sibling colourway arrives as a bare link: fill in what the search card would have said.
+    analytics = pdp.get("analytics") or {}
+    item.title = item.title or pdp.get("name") or ""
+    item.brand = item.brand or (pdp.get("brand") or {}).get("name") or analytics.get("brand")
+    item.gender = item.gender or parse_gender(analytics.get("gender")) or parse_gender(item.title)
+    item.price = item.price or pdp.get("mrp")
+    # The same product's other colourways (label, link), so a model match in the wrong colour can lead to the
+    # right one even when search didn't return it.
+    item.extra["colourways"] = [
+        {"label": c.get("label"), "url": f"{BASE}/{str(c.get('url') or '').lstrip('/')}"}
+        for c in (pdp.get("colours") or []) if c.get("url") and c.get("label")
+    ]
     sizes = pdp.get("sizes") or []
     if sizes:
         item.available = any(s.get("available") for s in sizes)

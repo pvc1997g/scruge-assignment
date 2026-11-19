@@ -219,6 +219,9 @@ def check_platform(src: Listing, platform: str) -> PlatformResult:
             if done:
                 break
 
+    if src.category in (Category.SNEAKERS, Category.APPAREL):
+        matches += _follow_colourways(src, adapter, candidates, rejections)
+
     best = pick_best(src, matches) if matches else None
 
     if best is None:
@@ -315,11 +318,18 @@ def best_tier(src: Listing, matches: list) -> int:
     return max(colour_tier(src, c) for _, c, _ in matches)
 
 
+def _fashion_colour_tier(src: Listing, c: Listing) -> int:
+    """2 = the same base colour (off-white = off-white), 1 = only the same family (off-white ≈ white)."""
+    ok, why = colours_match(src.colour, c.colour)
+    return 0 if not ok else (1 if "family" in why else 2)
+
+
 def _rank_key(src: Listing):
     def key(m):
         score, c, _ = m
         phone = src.category == Category.SMARTPHONE
-        tier = colour_tier(src, c) if phone else 0
+        fashion = src.category in (Category.SNEAKERS, Category.APPAREL)
+        tier = colour_tier(src, c) if phone else (_fashion_colour_tier(src, c) if fashion else 0)
         # A listing that states the same network (REDMI A7 Pro 5G) beats one that doesn't say (REDMI A7 Pro).
         net = int(phone and network_gen(src.title) is not None and network_gen(c.title) == network_gen(src.title))
         return (net, tier, round(score, 2), c.available is not False, c.available is True)
@@ -329,6 +339,41 @@ def _rank_key(src: Listing):
 def pick_best(src: Listing, matches: list):
     """Phones: same colour first, then match score, then buyable. Others: score, then buyable."""
     return max(matches, key=_rank_key(src))
+
+
+MAX_COLOURWAYS = 4  # sibling colourway pages opened per platform check
+
+
+def _follow_colourways(src: Listing, adapter, candidates: dict, rejections: list) -> list:
+    """A listing that is the right model in the wrong colour can name the right colourway (Myntra lists each
+    product's colourways on its page). Open the siblings whose colour fits Amazon's and judge them like any listing."""
+    siblings = []
+    for c in list(candidates.values()):
+        ways = c.extra.get("colourways")
+        if not ways:
+            continue
+        probe = Listing(**{**c.__dict__, "colour": src.colour, "extra": {**c.extra, "brand_colour": None}})
+        if not match(src, probe).is_match:
+            continue  # not the right model, so its colourways aren't either
+        for w in ways:
+            if w["url"] in candidates or any(s.url == w["url"] for s in siblings):
+                continue
+            if colours_match(src.colour, w["label"])[0] is False:
+                continue
+            siblings.append(Listing(platform=c.platform, title="", url=w["url"], colour=w["label"],
+                                    brand=c.brand, gender=c.gender))
+    found = []
+    for sib in siblings[:MAX_COLOURWAYS]:
+        _safe_enrich(adapter)(sib)
+        if not sib.title:
+            continue
+        candidates[sib.url] = sib
+        v = match(src, sib)
+        if v.is_match:
+            found.append((v.score, sib, v.reasons + ["found through another colourway's page"]))
+        else:
+            rejections.append(f"{sib.title[:70]} → {v.reasons[-1]}")
+    return found
 
 
 def _safe_enrich(adapter):

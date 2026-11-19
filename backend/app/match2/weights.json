@@ -1,82 +1,82 @@
 {
  "apparel": {
   "weights": {
-   "bias": 1.0726,
-   "ident_exact": 2.7954,
+   "bias": 1.4441,
+   "ident_exact": 2.6289,
    "ident_variant": 0.0,
    "ident_series": 0.0,
-   "versions_unstated": -0.5135,
-   "missing_sum": -0.1343,
-   "missing_max": 0.4603,
-   "extra_sum": -0.9236,
-   "extra_max": -0.9821,
-   "shared_sum": 0.7104,
-   "colour_exact": 1.5799,
-   "soft_conflicts": -0.8345,
-   "soft_agree": -0.4159,
-   "no_name": 0.1734,
-   "name_exact": 0.3849,
-   "versions_match": 1.1198
+   "versions_unstated": -0.6499,
+   "missing_sum": -0.1469,
+   "missing_max": 0.467,
+   "extra_sum": -1.0392,
+   "extra_max": -1.0843,
+   "shared_sum": 0.6181,
+   "colour_exact": 1.4585,
+   "soft_conflicts": -0.8518,
+   "soft_agree": -0.3789,
+   "no_name": 0.1448,
+   "name_exact": 0.398,
+   "versions_match": 1.2963
   },
-  "threshold": 0.856,
-  "trained_on": 1154
+  "threshold": 0.814,
+  "trained_on": 906
  },
  "smartphone": {
   "weights": {
-   "bias": -0.9832,
+   "bias": -0.8491,
    "ident_exact": 0.0,
    "ident_variant": 0.0,
    "ident_series": 0.0,
    "versions_unstated": 0.0,
-   "missing_sum": -0.4403,
-   "missing_max": -0.8589,
-   "extra_sum": -0.3946,
-   "extra_max": -0.3946,
-   "shared_sum": 0.9809,
+   "missing_sum": -0.3494,
+   "missing_max": -0.6224,
+   "extra_sum": -0.2337,
+   "extra_max": -0.2337,
+   "shared_sum": 0.751,
    "colour_exact": 0.0,
    "soft_conflicts": 0.0,
    "soft_agree": 0.0,
    "no_name": 0.0,
-   "name_exact": 1.1699,
-   "versions_match": 0.5965
+   "name_exact": 0.9343,
+   "versions_match": 0.3268
   },
   "threshold": 0.5,
-  "trained_on": 105
+  "trained_on": 28
  },
  "sneakers": {
   "weights": {
-   "bias": 1.6977,
+   "bias": 1.4507,
    "ident_exact": 0.0,
    "ident_variant": 0.0,
    "ident_series": 0.0,
-   "versions_unstated": -0.7556,
-   "missing_sum": -1.0866,
-   "missing_max": -0.8096,
-   "extra_sum": -1.5189,
-   "extra_max": -1.512,
-   "shared_sum": 0.412,
-   "colour_exact": -0.0978,
+   "versions_unstated": -0.9475,
+   "missing_sum": -1.3906,
+   "missing_max": -1.1553,
+   "extra_sum": -0.7926,
+   "extra_max": -1.193,
+   "shared_sum": 0.6646,
+   "colour_exact": 0.2778,
    "soft_conflicts": 0.0,
    "soft_agree": 0.0,
    "no_name": 0.0,
-   "name_exact": 0.2818,
-   "versions_match": 0.404
+   "name_exact": -0.0276,
+   "versions_match": 0.4217
   },
-  "threshold": 0.6,
-  "trained_on": 482
+  "threshold": 0.793,
+  "trained_on": 318
  },
  "tv": {
   "weights": {
-   "bias": 3.1285,
-   "ident_exact": 2.9252,
-   "ident_variant": 0.1196,
+   "bias": 2.9268,
+   "ident_exact": 2.9156,
+   "ident_variant": -0.0007,
    "ident_series": 0.0,
    "versions_unstated": 0.0,
-   "missing_sum": -0.7482,
-   "missing_max": 0.0765,
-   "extra_sum": -0.6663,
-   "extra_max": -0.9762,
-   "shared_sum": 0.9469,
+   "missing_sum": -0.7212,
+   "missing_max": 0.0876,
+   "extra_sum": -0.6341,
+   "extra_max": -1.0004,
+   "shared_sum": 0.9625,
    "colour_exact": 0.0,
    "soft_conflicts": 0.0,
    "soft_agree": 0.0,
@@ -85,6 +85,6 @@
    "versions_match": 0.0
   },
   "threshold": 0.5,
-  "trained_on": 40
+  "trained_on": 39
  }
 }

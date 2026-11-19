@@ -40,6 +40,7 @@ def dataset():
     labels = load_labels()
     dev = json.load(open(os.path.join(EVAL, "splits.json")))["dev"]
     data = defaultdict(list)
+    seen = defaultdict(set)
     for asin in dev:
         if not os.path.exists(pools.pool_path(asin)):
             continue
@@ -53,7 +54,12 @@ def dataset():
                 rejection, x, _ = features(src, cand, src.category)
                 if rejection:
                     continue
-                data[src.category.value].append((asin, [x[f] for f in FEATURES], 1 if lab == "same" else 0))
+                row = (asin, tuple(round(x[f], 4) for f in FEATURES), 1 if lab == "same" else 0)
+                # Within one Amazon product, listings with identical evidence (fourteen "Unisex 574 Casual Shoes",
+                # a listing's sizes and sellers) count once: copies add weight, not information.
+                if row not in seen[src.category.value]:
+                    seen[src.category.value].add(row)
+                    data[src.category.value].append((asin, list(row[1]), row[2]))
     return data
 
 

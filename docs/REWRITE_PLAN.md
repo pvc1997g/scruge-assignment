@@ -205,3 +205,27 @@ at test and review results, so fixing them and re-scoring on the same links woul
 | R5 | 2026-11-18 | Decision (user): fix the three general causes behind v2's review misses: (1) shade names abbreviated by stores ("MVE" for "MAUVE"); (2) a line number stated only in the description ("Levi's 025" in Myntra's text); (3) the phone model, trained on only 4 different-product pairs, over-penalising a missing umbrella word ("Galaxy"). From here the reviewer's 20 are no longer independent for v2 (they never were for v1). The clean evidence stays the R4 test2 result above; test2 is re-run after R5 only as a regression check. Adopt v2 if review ≥ 37/40 and dev/test2 don't regress. |
 | R5 result | 2026-11-18 | Fixes: shade abbreviations (`MVE` = `MAUVE`, same first letter and letters in order); versions stated anywhere in the listing's own text; heavier weight shrinkage when a category has fewer than 20 different-product pairs. **Review: v2 37/40 = v1 37/40** (pair precision v2 90.8%, v1 84.8%). Regression checks: dev v2 197/210 (unchanged), test2 v2 53/64 (was 52). Adoption conditions met. |
 | M9 | 2026-11-18 | v2 is the default in `service.py`; `SCRUGE_MATCHER=v1` switches back (v1 kept for comparison; the query builder still uses its helpers). **Live run of the reviewer's 20, back to back: v1 15/20, v2 14/20.** The one difference: Sony 55" on Flipkart, where v2 picks a K-55S25M2 listing and v1 the K-55S25EM2 listing the reviewer named; the labels treat both as the same BRAVIA 2 II 55" (see M3), but the reviewer's script counts only their listing. Not tuned away (that would be fitting to the review again); recorded here instead. Latency unchanged (median 4.6 s both). Docs: `HOW_MATCHING_WORKS.md` and the README describe v2 and the evaluation; the Word document and the two PDFs still describe v1's rules. |
+
+## Round 3 (decided 2026-11-19): colourways and product photos
+
+Checkpoint before round 3: commit `ee128b9`.
+
+- **C1. Follow colourways.** Myntra's product data lists a product's other colourways (`pdpData.colours`: colour
+  label, link, image). When a listing matches on model but not colour, open the sibling whose colour fits.
+  Flipkart's server pages don't carry colourways (they load in the browser), but its search already returns them
+  as separate listings.
+- **C2. Compare product photos.** Brands supply the same photos to stores, so near-identical images would be
+  strong evidence for garments without a style code. **Pilot first:** measure perceptual-hash distances on
+  labelled same vs different pairs; build it only if the two separate.
+- **Evaluation:** both need data the snapshots don't hold (sibling pages, image hashes), so the snapshots are
+  augmented, never re-recorded, and new listings are labelled with the same rules (test2 blind). The round-2
+  numbers (test2 v2 53/64, review 37/40, dev 197/210) are the baseline. No new test set this round: test2 is
+  only a regression check, and the claim for round 3 rests on dev and on a small fresh set if the change is big.
+
+### Round 3 results log
+
+| Step | Date | Result |
+|---|---|---|
+| C2 pilot | 2026-11-19 | Perceptual hash (dHash via macOS `sips`, no new dependency), dev shoe/clothing pairs. **Main photo vs main photo: no signal** (median distance same 22 vs different-but-same-colour 23); Amazon and the stores mostly use different shots. **Closest pair across both galleries (Myntra, 25+25 pairs): moderate signal**: distance ≤ 8 for 64% of same pairs vs 20% of different ones (likelihood ratio ≈ 3). Building it needs Pillow (the Docker image runs Linux, no `sips`) and up to ~70 image downloads per check (a few seconds). Decision deferred to the user. |
+| C1 | 2026-11-19 | Myntra's adapter records each product's colourways; for shoes and clothes the app opens up to 4 sibling colourways whose colour fits Amazon's, from listings that match the model with colour set aside. Ranking for shoes and clothes now prefers the exact base colour over the same family (off-white over white), as phones already did. Pools augmented with colourway data (`scripts/augment_colourways.py`). |
+| C1 result | 2026-11-19 | 122 sibling colourways added to 81 pools and labelled (test2 blind). Found on the way: Myntra's colour "Off White" was read as a shade called "off", which wrongly rejected off-white listings (the reviewer's Court Vision Alta among them); fixed. Training now counts pairs with identical evidence once per Amazon product (fourteen identical "Unisex 574 Casual Shoes" were outweighing everything else). Two Myntra Go Walk Flex listings in Mauve that v2 picked had never been labelled (their pages weren't opened during the snapshot); labelled "same". **Result: dev v2 196/210 (round 2: 197), test2 53/64 (=), review 37/40 (=); v1 181, 48, 37.** Review detail: the Court Vision Alta on Myntra is now right (live too: it picks the off-white listing the reviewer named); a green teamLIGA jersey that is reachable only through a colourway link is now in the labels, and v2 rejects it (score 0.72 against the apparel threshold 0.81), so that store moved from "nothing to find" to "missed". Net effect of C1 on the counts: neutral; the remaining errors are mostly thresholds learned from little clothing data. |
