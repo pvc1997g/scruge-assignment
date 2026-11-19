@@ -1,0 +1,37 @@
+# Round-2 test set (R2): chosen and locked before any round-2 matcher change. Scored once at R4.
+# Smartphones
+https://www.amazon.in/dp/B0HJCXYKCT
+https://www.amazon.in/dp/B0GTTX8WG4
+https://www.amazon.in/dp/B0FDB9H9Z7
+https://www.amazon.in/dp/B0G2BBWKCP
+https://www.amazon.in/dp/B0FT3J2W97
+https://www.amazon.in/dp/B0FHGD6K6K
+https://www.amazon.in/dp/B0H1S46M8Z
+https://www.amazon.in/dp/B0FQG1VB5Y
+# TVs
+https://www.amazon.in/dp/B0D3DW1CJF
+https://www.amazon.in/dp/B0GY3JRP3X
+https://www.amazon.in/dp/B0GTZ8WM5W
+https://www.amazon.in/dp/B0H26MYZWT
+https://www.amazon.in/dp/B0FJLSNZBW
+https://www.amazon.in/dp/B0FDW7NT4Q
+https://www.amazon.in/dp/B0GVK5Q87C
+https://www.amazon.in/dp/B0GTZ27TH9
+# Sneakers
+https://www.amazon.in/dp/B0FGW52238
+https://www.amazon.in/dp/B0BGGWBW1D
+https://www.amazon.in/dp/B09NMG298X
+https://www.amazon.in/dp/B0DVZHTX55
+https://www.amazon.in/dp/B0G2MNQJQV
+https://www.amazon.in/dp/B0H71T1GMZ
+https://www.amazon.in/dp/B096W22PBC
+https://www.amazon.in/dp/B0F18DM1WN
+# T-shirts / polos / jerseys
+https://www.amazon.in/dp/B07CXXHLY2
+https://www.amazon.in/dp/B0GRTQTWFT
+https://www.amazon.in/dp/B0DDTHBCJP
+https://www.amazon.in/dp/B0H5WDNJYQ
+https://www.amazon.in/dp/B0DLL2QJHJ
+https://www.amazon.in/dp/B0H4R9GZHT
+https://www.amazon.in/dp/B0CYB7MLMV
+https://www.amazon.in/dp/B0GHGCVS63

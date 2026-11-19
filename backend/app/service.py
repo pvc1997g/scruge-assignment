@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 import time
@@ -10,13 +11,18 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from . import http
-from .matcher import match, source_model_tokens
+from . import match2, matcher as matcher_v1
+from .matcher import source_model_tokens
 from .models import PLATFORMS_BY_CATEGORY, Category, Listing, PlatformResult, Status
 from .normalize import (
     apparel_facts, brands_match, codes_overlap, colour_words, colours_match, genders_compatible,
     is_multipack, model_codes, model_tokens, network_gen,
 )
 from .sources import amazon, croma, flipkart, myntra
+
+# Matcher v2 (app/match2) is the default since the rewrite (docs/REWRITE_PLAN.md); SCRUGE_MATCHER=v1 switches back.
+MATCHER = os.environ.get("SCRUGE_MATCHER", "v2")
+match = matcher_v1.match if MATCHER == "v1" else match2.match
 
 log = logging.getLogger("scruge")
 

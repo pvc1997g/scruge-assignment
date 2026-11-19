@@ -20,6 +20,7 @@ store that doesn't sell the product.
 - [The Same-Toy Detective](docs/Scruge-Explained-Like-Im-5.pdf): the same explanation as an illustrated picture book (11 pages).
 - [How a link becomes an answer](docs/Scruge-Technical-Walkthrough.pdf): the end-to-end technical walkthrough, with architecture, a real request traced step by step, the matching rules, design decisions and test results (12 pages).
 - [`docs/HOW_MATCHING_WORKS.md`](docs/HOW_MATCHING_WORKS.md): the same explanation as text, also served in the app at `/how-it-works`.
+- [`docs/REWRITE_PLAN.md`](docs/REWRITE_PLAN.md): how the matcher was rewritten and measured, milestone by milestone, with every result (including the ones that didn't go our way).
 
 The PDFs are rendered from `docs/pdf/*.html` with headless Chrome.
 
@@ -69,7 +70,26 @@ cd backend
 .venv/bin/python scripts/try_link.py https://www.amazon.in/dp/B0GVYGLNH7
 .venv/bin/python scripts/try_link.py $(grep -v '^#' scripts/test_links.txt)   # whole test set
 .venv/bin/python scripts/score_review.py                                      # the reviewer's 20 links, scored
+SCRUGE_MATCHER=v1 .venv/bin/python scripts/try_link.py <link>                 # the old matcher, for comparison
 ```
+
+## Measuring the matcher (offline, repeatable)
+
+Store search results change from minute to minute, so the matcher is measured on saved snapshots of what the stores
+returned (`backend/eval/pools/`, 155 Amazon links) against 9,163 hand-checked listing pairs (`backend/eval/labels.jsonl`).
+
+```bash
+cd backend
+.venv/bin/python scripts/evaluate.py --set test2 --matcher v2 -v   # fresh test set; also: dev, review, v1
+.venv/bin/python scripts/build_background.py && .venv/bin/python scripts/train_v2.py   # rebuild rarity table + weights (dev only)
+.venv/bin/python scripts/snapshot.py <links file>                  # save pools for new links
+.venv/bin/python scripts/label.py show <ASIN>                      # label them (test links are shown blind)
+```
+
+| | Fresh test set (64 store checks) | Pair precision | Reviewer's 20 (40) | Tuning set (210) |
+|---|---|---|---|---|
+| Old matcher (v1) | 48 | 58% | 37 | 182 |
+| New matcher (v2, default) | 53 | 79% | 37 | 197 |
 
 ## API
 
@@ -96,7 +116,13 @@ Errors: `422` for non-Amazon links or unsupported categories, `502` if Amazon co
 backend/app/
   main.py          FastAPI endpoints
   service.py       orchestration: build queries → search platforms in parallel → match → stock
-  matcher.py       the matching rules (brand / model / category attribute gates + scoring)
+  match2/          the matcher (v2, default)
+    facts.py       what a listing states: name words, versions, codes, attributes (store conventions live here)
+    schema.py      per category: which attributes must agree, and how
+    engine.py      identifiers first → hard rules → rarity-weighted evidence → learned score
+    rarity.py      how much a word says about *which* product (background.json, built from dev pools)
+    weights.json   the learned scoring, per category (scripts/train_v2.py)
+  matcher.py       the previous matcher (v1); SCRUGE_MATCHER=v1 switches back
   normalize.py     text → facts: RAM, storage, screen size, colour families, model tokens, TV codes, garment facts
   http.py          shared HTTP client (curl_cffi with a Chrome fingerprint, retries, per-site sessions)
   sources/
@@ -111,10 +137,13 @@ frontend/src/app/
 
 ## Design decisions
 
-- **No paid APIs, no LLM.** Matching is deterministic rules, so every decision is explainable: each result's
-  `reasons` (in the API and `scripts/try_link.py`) list which checks passed and why near-misses were rejected.
-- **Hard gates, then score.** A candidate must pass *every* check (brand, model, category attribute). The score
-  only ranks candidates that already passed. "Almost the same" never counts as a match.
+- **No paid APIs, no LLM.** Every decision is explainable: each result's `reasons` (in the API and
+  `scripts/try_link.py`) list which checks passed and why near-misses were rejected.
+- **Facts, not word lists.** Hard rules only for facts (storage, screen size, wearer, colour, clashing model codes).
+  Whether names agree is judged by how rare each word is across the category, not by hand-made lists, and a small
+  model learned from labelled pairs turns the evidence into a score. Adding a category means adding a table.
+- **Measured, not eyeballed.** Changes are judged on saved snapshots against labelled pairs, with a test set that
+  is chosen and labelled before the changes it judges (see `docs/REWRITE_PLAN.md`).
 - **Only definite matches count.** A listing is shown as found only when it passes every check; there are no
   "maybe" results. A garment that agrees only on details true of most plain tees (solid, short sleeve, round
   neck) is not counted.
@@ -128,8 +157,10 @@ frontend/src/app/
 
 - Scrapers depend on page structure; a platform redesign means updating one file in `sources/`.
 - Datacenter IPs (cloud hosting) are more likely to be blocked by these sites than a home connection.
-- Apparel without a style code is matched on garment facts (type, pattern, fit, sleeve, neck, material) plus
-  colour and gender. If only basic details agree, it's reported as Not listed rather than guessed.
+- Apparel without a style code is the weakest area: two plain polos of one brand and colour look the same on
+  paper. When nothing distinctive agrees, it's reported as Not listed rather than guessed.
+- The app opens at most 8 product pages per search to read colours and codes, so with many colourways of one
+  shoe the right one can go unread.
 - Recall is bounded by each store's own search. Some listings (mostly sold-out ones) never appear in search
   results however the query is phrased; on the reviewer's 20 links, five products miss a listing for this reason.
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.

@@ -54,48 +54,28 @@ We fetch the Amazon product page and pull out structured facts from its title an
 If the first search finds nothing that matches, we try a looser one. Each platform is searched at the same time,
 so the whole check usually takes 5–15 seconds.
 
-### 3. The checks (every one must pass)
-1. **Brand.** Normalised, so `SAMSUNG` = `Samsung`, and `Redmi` = `Xiaomi`.
-2. **Model.** This is the hard part, and it works differently per category:
-   - **Phones:** we remove marketing words ("AI Smartphone") and compare the words that *identify* the model:
-     anything with a digit (`S24`, `15`, `CE6`) or a variant word (`Pro`, `Ultra`, `Plus`, `Lite`, `FE`). These must be
-     **identical**, and every series word must be present too, so `Galaxy S24` fails against `Galaxy S24 Ultra` and
-     `POP X` fails against `POVA X`. Umbrella words a store may drop are optional: Flipkart sells the Galaxy M36 as
-     "Samsung M36 5G". **5G and 4G versions are different phones** (`REDMI A7 Pro 5G` ≠ `REDMI A7 Pro`): a listing
-     that says the other network is rejected, and one that states the same network ranks first.
-   - **TVs:** we compare the **manufacturer model code**. Flipkart hides it on search results, so we open the
-     product page; Croma's search data carries it in a short summary (`E-SONY LED Bravia2 II K-55S25BM2`). A
-     revision suffix makes a different TV (`K-55S25B` ≠ `K-55S25BM2`). A one-letter regional variant of the same
-     code (`K-55S25EM2`) and a series-only code (`LG NU870B` for `43NU870BPLA`) are accepted with lower confidence.
-   - **Sneakers:** a matching style code (e.g. `177288-MVE`) is an instant match, and we look for it in the store's
-     model-name field too. Otherwise every Amazon model word must be on the listing (title, Flipkart's model name,
-     or Myntra's "Collection Name", where Myntra often hides it: "Nike Women Leather Sneakers" is a *Court Vision
-     Alta*). Descriptive extras are fine (`Leather`, `Road`, `Low Top`), but an extra name word is a sub-model and
-     rejects (`Chuck Taylor All Star` ≠ `Chuck Taylor All Star Malden Street`). Version words (`Mid`, `Comfort`,
-     `Waterproof`, `Slip-Ins`, `8` vs `7`) must agree, and low top is the default when Amazon doesn't say.
-   - **T-shirts / polos / jerseys:** clothes rarely have model names, so we use the best evidence available:
-     1. **Style code.** If Amazon's style number equals the store's style code, it's the same garment (100%). A long,
-        identical code names one colour variant, so it also settles the colour when the colour name is unusual.
-        Stores often list a jersey as a plain T-shirt ("ADIDAS Men Graphic Print Crew Neck T-Shirt" is the
-        Manchester United 24/25 home kit, style code `IU1397`), so jerseys with a code get extra searches and
-        more product pages opened.
-     2. **Jerseys without a code:** the team or line name, the season (`24/25`, `TIRO 23`) and the kit (home / away)
-        must agree. Print and fit labels are ignored for kits, because stores fill them in inconsistently.
-     3. **Other garments, from all spec tables:** **pattern**, **fit**, **sleeve**, **neck** and **material** must
-        not differ, and at least two strong facts must agree. If Amazon names a product line (Puma *Essential*,
-        Levi's *025*), the listing must mention it in its title, model name or description. A design detail Amazon's
-        garment doesn't have rejects (contrast sleeves, tipping, jacquard collar), and so does a multi-pack.
-     4. If only the default facts agree (solid, short sleeve, round neck: true of most plain tees), that is **not**
-        enough to say it's the same garment, so it doesn't count. We only ever show definite matches.
-3. **The category's extra rule.**
-   - Phones: storage must be equal. RAM must be equal whenever both sites state it (Apple doesn't publish RAM,
-     so model + storage decide there).
-   - TVs: screen size must be equal (±1 inch, to absorb 138 cm vs 139.7 cm rounding).
-   - Sneakers / apparel: if the store repeats the brand's own colour name (`DESERT KHAKI/DARK HAZEL-SAIL`,
-     `Shimmer`, `BLACK (RED)`), that settles it. Otherwise base colour must match (`Onyx` → black, `Gibraltar Sea`
-     → blue, `Sail` → off-white, `Navy` ≈ blue). A real colour word in the name wins over a descriptive one, so
-     `Midnight Blue` is blue. An exact colour scores higher than a "same family" colour. Who it's for must also be
-     compatible: men's ≠ women's, but unisex fits both.
+### 3. Is it the same product? (`backend/app/match2/`)
+One comparison routine for every category; the category only picks a short table of what must agree
+(`schema.py`). Four steps:
+
+1. **Read what each listing states** (`facts.py`), never guessing: the model's own words, its version words, any
+   manufacturer code, and the attributes. Store conventions are handled here: Flipkart's model-name field and
+   Myntra's "Collection Name" (Myntra calls a *Court Vision Alta* "Nike Women Leather Sneakers" in the title), model
+   names inside brackets ("Nothing Phone (3a Lite)"), "Pro+" meaning "Pro Plus", and Croma writing "5G" in the name
+   of every 5G phone it sells.
+2. **Identifiers first.** The same manufacturer code is the same product: a TV model code (`K-55S30B`) or a
+   garment/shoe style code (`IU1397`, so a Flipkart "ADIDAS Men Graphic Print T-Shirt" can be the Manchester United
+   24/25 home kit). Codes of the same kind that clash reject (`43NU870` ≠ `43NU885`, `K-55S25B` ≠ `K-55S25BM2`).
+   A one-letter sales variant of a TV code (`K-55S25EM2`) counts as the same set.
+3. **Hard rules** (a conflict rejects): storage, RAM and 5G/4G for phones; screen size (±1 inch) for TVs; wearer,
+   pack size and colour for shoes and clothes. Colour is compared as precisely as both sides state it: Amazon
+   "Grey" matches any grey listing, but when both name a shade they must share it (`WOLF GREY` ≠ `FOOTBALL GREY`,
+   `MAUVE` = `MVE`). Version words must agree (`8` vs `8 EasyOn`, `S24` vs `S24 FE`, `Pro` vs `Pro Plus`).
+4. **Everything else is evidence, weighted by how rare each word is** in that category (`rarity.py`). Missing a
+   common word costs little (Flipkart's "Samsung M36" without "Galaxy"); an extra rare word costs a lot
+   (`Chuck Taylor All Star` vs `... Malden Street`, `574` vs `574 Legacy`). A small learned model per category turns
+   the evidence into a score (`weights.json`, trained by `scripts/train_v2.py`). Plain garments with nothing
+   distinctive in common score low and come back Not listed rather than as a guess.
 
 ### 4. Pick the winner and check stock
 Phones are listed once per colour, so several listings can pass every check. For phones we pick, in order:
@@ -109,13 +89,27 @@ to the one you can actually buy. Stock comes from the platform itself:
 
 ### 5. Keep the reasoning
 The website keeps it simple: one result per store. Behind it, every result records exactly which checks passed,
-or why the near-misses were rejected (e.g. *"Redmi Note 17 Pro → different model (missing 14, extra 17)"*). It's in
+or why the near-misses were rejected (e.g. *"different model version (8 vs 8 easyon)"*). It's in
 the API's `reasons` field and printed by `scripts/try_link.py`, which makes the system easy to trust and debug.
+
+### 6. How we know it works
+The matcher was rewritten after a review found it had been tuned link by link. The rewrite was measured on saved
+snapshots of what the stores returned (so both versions see identical input), against 9,163 hand-checked
+listing pairs, with a test set chosen and labelled before the final changes (`docs/REWRITE_PLAN.md`):
+
+| | Fresh test set (64 store checks) | Pair precision there | Reviewer's 20 links (40) | Tuning set (210) |
+|---|---|---|---|---|
+| Old matcher | 48 | 58% | 37 | 182 |
+| New matcher | 53 | 79% | 37 | 197 |
+
+Run it yourself: `scripts/evaluate.py --set test2 --matcher v2` (and `--matcher v1` for the old one).
 
 ### Known limits
 - No paid APIs or LLMs: everything is rules plus the platforms' own public pages and data.
 - If a platform changes its page layout, its adapter needs updating. Each platform lives in its own small file
   (`backend/app/sources/*.py`).
+- The app opens a limited number of product pages per search (to read colours and codes), so on a store with many
+  colourways of one shoe the right colour can go unread.
 - Plain garments without a style code can't be told apart reliably (two plain black polos from one brand look the
   same on paper). Rather than guess, those are reported as Not listed.
 - We can only judge what a store's search shows us. Some listings, mostly sold-out ones, never appear in the
