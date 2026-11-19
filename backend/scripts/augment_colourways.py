@@ -39,6 +39,8 @@ def fetch(url):
 
 
 def augment(asin: str) -> str:
+    if not os.path.exists(pools.pool_path(asin)):
+        return f"{asin} no pool saved, skipped"
     pool = pools.load(asin)
     src = pools.from_dict(pool["source"])
     pp = pool["platforms"].get("myntra")

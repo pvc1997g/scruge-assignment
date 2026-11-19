@@ -1,25 +1,25 @@
 {
  "apparel": {
   "weights": {
-   "bias": 1.4441,
-   "ident_exact": 2.6289,
+   "bias": 1.5177,
+   "ident_exact": 2.7874,
    "ident_variant": 0.0,
    "ident_series": 0.0,
-   "versions_unstated": -0.6499,
-   "missing_sum": -0.1469,
-   "missing_max": 0.467,
-   "extra_sum": -1.0392,
-   "extra_max": -1.0843,
-   "shared_sum": 0.6181,
-   "colour_exact": 1.4585,
-   "soft_conflicts": -0.8518,
-   "soft_agree": -0.3789,
-   "no_name": 0.1448,
-   "name_exact": 0.398,
-   "versions_match": 1.2963
+   "versions_unstated": -0.6216,
+   "missing_sum": -0.2339,
+   "missing_max": 0.8975,
+   "extra_sum": -1.0867,
+   "extra_max": -0.6433,
+   "shared_sum": 0.63,
+   "colour_exact": 1.3739,
+   "soft_conflicts": -0.9218,
+   "soft_agree": -0.5259,
+   "no_name": 0.1005,
+   "name_exact": 0.3341,
+   "versions_match": 0.9277
   },
-  "threshold": 0.814,
-  "trained_on": 906
+  "threshold": 0.791,
+  "trained_on": 1765
  },
  "smartphone": {
   "weights": {
@@ -45,25 +45,25 @@
  },
  "sneakers": {
   "weights": {
-   "bias": 1.4507,
+   "bias": 1.391,
    "ident_exact": 0.0,
    "ident_variant": 0.0,
    "ident_series": 0.0,
-   "versions_unstated": -0.9475,
-   "missing_sum": -1.3906,
-   "missing_max": -1.1553,
-   "extra_sum": -0.7926,
-   "extra_max": -1.193,
-   "shared_sum": 0.6646,
-   "colour_exact": 0.2778,
+   "versions_unstated": -0.939,
+   "missing_sum": -1.4015,
+   "missing_max": -1.1695,
+   "extra_sum": -0.7719,
+   "extra_max": -1.1773,
+   "shared_sum": 0.6893,
+   "colour_exact": 0.3471,
    "soft_conflicts": 0.0,
    "soft_agree": 0.0,
    "no_name": 0.0,
-   "name_exact": -0.0276,
-   "versions_match": 0.4217
+   "name_exact": -0.037,
+   "versions_match": 0.4301
   },
-  "threshold": 0.793,
-  "trained_on": 318
+  "threshold": 0.796,
+  "trained_on": 319
  },
  "tv": {
   "weights": {
