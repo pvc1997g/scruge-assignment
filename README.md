@@ -167,4 +167,14 @@ frontend/src/app/
   listed where the true answer is Out of stock. Searching by Amazon's style code doesn't help either: neither store
   indexes those codes. Telling the two apart needs a catalogue that doesn't come from search: a nightly crawl that
   remembers products while they're in stock, or the stores' partner feeds (which need API keys).
+- **What we checked for that next step** (2026-11-19):
+  - **robots.txt:** Myntra allows the search pages the app uses. Flipkart's robots.txt disallows `/search?` for
+    crawlers. The app makes one search per user request, like a browser, not a crawl, but a production version should
+    use Flipkart's affiliate feed instead.
+  - **Sitemaps:** both stores publish them. Myntra's list about 8 million products in 272 files (about 200 MB), with
+    category and brand in each URL, so a nightly index is practical. Whether they include sold-out products is
+    untested. Flipkart's run to roughly 6,000 files and tens of millions of products with no category grouping, too
+    heavy here.
+  - **A real browser (Playwright/headless Chrome)** doesn't help: a rendered Flipkart product page shows size options
+    only, no links to its other colours, and search results are the same whatever the client.
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.
