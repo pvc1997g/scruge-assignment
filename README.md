@@ -89,7 +89,7 @@ cd backend
 | | Fresh test set (64 store checks) | Pair precision there | Reviewer's 20 (40) | Tuning set (280) |
 |---|---|---|---|---|
 | Old matcher (v1) | 48 | 60% | 37 | 232 |
-| New matcher (v2, default) | 52 | 77% | 37 | 260 |
+| New matcher (v2, default) | 53 | 77% | 38 | 260 |
 
 ## API
 
@@ -161,6 +161,10 @@ frontend/src/app/
   paper. When nothing distinctive agrees, it's reported as Not listed rather than guessed.
 - The app opens at most 8 product pages per search to read colours and codes. On Myntra it also follows a
   product's own colourway links to the right colour; on Flipkart, colourways only appear as separate search results.
-- Recall is bounded by each store's own search. Some listings (mostly sold-out ones) never appear in search
-  results however the query is phrased; on the reviewer's 20 links, five products miss a listing for this reason.
+- Recall is bounded by each store's own search, and **both stores hide out-of-stock products from search**. On the
+  reviewer's 20 links, 5 of the 40 store results are sold-out listings (Revolution 8 and teamLIGA on both stores,
+  the Levi's 025 on Flipkart): their pages still exist, but no query, page or code finds them, so the app says Not
+  listed where the true answer is Out of stock. Searching by Amazon's style code doesn't help either: neither store
+  indexes those codes. Telling the two apart needs a catalogue that doesn't come from search: a nightly crawl that
+  remembers products while they're in stock, or the stores' partner feeds (which need API keys).
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.

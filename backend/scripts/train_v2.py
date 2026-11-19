@@ -55,9 +55,12 @@ def dataset():
                 if rejection:
                     continue
                 row = (asin, tuple(round(x[f], 4) for f in FEATURES), 1 if lab == "same" else 0)
-                # Within one Amazon product, listings with identical evidence (fourteen "Unisex 574 Casual Shoes",
-                # a listing's sizes and sellers) count once: copies add weight, not information.
-                if row not in seen[src.category.value]:
+                # Shoes and clothes: within one Amazon product, listings with identical evidence (fourteen "Unisex
+                # 574 Casual Shoes", a listing's sizes and sellers) count once: copies add weight, not information.
+                # Phones and TVs keep every labelled listing: there are few of them, and removing copies left the
+                # phone model with 28 rows and 2 non-matches, too few to learn a sensible weighting from.
+                fashion = src.category.value in ("sneakers", "apparel")
+                if not fashion or row not in seen[src.category.value]:
                     seen[src.category.value].add(row)
                     data[src.category.value].append((asin, list(row[1]), row[2]))
     return data

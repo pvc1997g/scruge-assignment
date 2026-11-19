@@ -104,7 +104,7 @@ listing pairs, with a test set chosen and labelled before the final changes (`do
 | | Fresh test set (64 store checks) | Pair precision there | Reviewer's 20 links (40) | Tuning set (280) |
 |---|---|---|---|---|
 | Old matcher | 48 | 60% | 37 | 232 |
-| New matcher | 52 | 77% | 37 | 260 |
+| New matcher | 53 | 77% | 38 | 260 |
 
 Run it yourself: `scripts/evaluate.py --set test2 --matcher v2` (and `--matcher v1` for the old one).
 
@@ -116,8 +116,9 @@ Run it yourself: `scripts/evaluate.py --set test2 --matcher v2` (and `--matcher 
   colourways of one shoe, the right colour can go unread.
 - Plain clothes are the weakest area, and more examples don't fix it: the listings themselves often carry nothing
   that tells two plain polos apart (no code, no distinctive name). Those come back Not listed rather than guessed.
-- Plain garments without a style code can't be told apart reliably (two plain black polos from one brand look the
-  same on paper). Rather than guess, those are reported as Not listed.
+- Flipkart and Myntra hide out-of-stock products from search. A sold-out product therefore comes back Not listed
+  rather than Out of stock: we can't see what the store won't show. On the reviewer's 20 links this accounts for 5 of
+  the 40 store results.
 - We can only judge what a store's search shows us. Some listings, mostly sold-out ones, never appear in the
   store's search results however the query is phrased, so they can't be found.
 - Stock is checked without a delivery pincode, so it means "the platform is selling it", not "it can reach your

@@ -147,7 +147,7 @@
 
   <div class="grid3" style="margin: 6mm 0 2mm;">
     <div><div class="bignum">0</div><div>paid APIs, API keys or language models. Every decision can be traced to a stated reason.</div></div>
-    <div><div class="bignum">52 / 64</div><div>store checks right on a test set the matcher never saw (old matcher: 48).</div></div>
+    <div><div class="bignum">53 / 64</div><div>store checks right on a test set the matcher never saw (old matcher: 48).</div></div>
     <div><div class="bignum">~4 s</div><div>typical end-to-end time for a phone, with every store searched in parallel.</div></div>
   </div>
 
@@ -487,12 +487,12 @@ best = max(matches, key=rank)</pre>
   <table class="dense">
     <tr><th style="width:24%"></th><th>Fresh test set (64 checks)</th><th>Precision of accepted pairs there</th><th>Reviewer's 20 (40)</th><th>Tuning set (280)</th></tr>
     <tr><td>Old matcher</td><td>48</td><td>60%</td><td>37</td><td>232</td></tr>
-    <tr><td><strong>New matcher</strong></td><td><strong>52</strong></td><td><strong>77%</strong></td><td>37</td><td>260</td></tr>
+    <tr><td><strong>New matcher</strong></td><td><strong>53</strong></td><td><strong>77%</strong></td><td>38</td><td>260</td></tr>
   </table>
   <p class="small">The headline is the fresh test set: links the new matcher was never tuned on. Run with <code>scripts/evaluate.py --set test2 --matcher v2</code>. The full history, including the rounds that didn't help, is in <code>docs/REWRITE_PLAN.md</code>.</p>
 
   <h3>The reviewer's 20 links, run live</h3>
-  <p>Of the 40 store results, 31 are correct, one is debatable (a Sony 55" where the store's model code differs from the reviewer's by a regional letter), and 7 are misses. Six of those misses are products the store's own search never shows (Revolution 8, teamLIGA, two Myntra listings); the seventh is a Levi's tee on Myntra with no code and only generic words. An off-white Court Vision Alta that was wrong is now found through Myntra's colourway links.</p>
+  <p>Of the 40 store results, 30 are correct and 2 debatable: a Sony 55" whose store model code differs from the reviewer's by a regional letter, and a Galaxy A55 where the app picks the right phone but a sold-out listing of it. Of the 8 misses, <strong>5 are sold-out listings the stores hide from search</strong> (Revolution 8 and teamLIGA on both stores, the Levi's 025 on Flipkart): their pages exist, but no query finds them. One more (TIRO 23 on Flipkart) is in stock and was found in the saved snapshot, but Flipkart's search stopped returning it on the day of the run. Only 2 are matcher misses: plain Puma and Levi's tees on Myntra with too little evidence to accept.</p>
 
 <div class="grid2" style="margin-top: 4mm;">
     <div>
@@ -501,7 +501,7 @@ best = max(matches, key=rank)</pre>
         <li>Scrapers depend on page structure; a redesign means updating one adapter file.</li>
         <li>Plain garments without a style code can't be told apart reliably, and 35 more labelled clothing links didn't change that: the listings themselves carry no distinguishing evidence. Rather than guess, they are reported as not listed.</li>
         <li>Stock is checked without a pincode: "the store is selling it", not "it can reach you".</li>
-        <li>Recall is bounded by each store's own search: what it doesn't surface, we can't see.</li>
+        <li>Both stores hide out-of-stock products from search, so a sold-out product comes back "not listed" rather than "out of stock". Neither store indexes Amazon's style codes, so searching by code doesn't help.</li>
       </ul>
     </div>
     <div>
