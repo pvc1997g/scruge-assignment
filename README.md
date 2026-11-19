@@ -76,7 +76,7 @@ SCRUGE_MATCHER=v1 .venv/bin/python scripts/try_link.py <link>                 # 
 ## Measuring the matcher (offline, repeatable)
 
 Store search results change from minute to minute, so the matcher is measured on saved snapshots of what the stores
-returned (`backend/eval/pools/`, 155 Amazon links) against 9,163 hand-checked listing pairs (`backend/eval/labels.jsonl`).
+returned (`backend/eval/pools/`, 190 Amazon links) against 12,396 hand-checked listing pairs (`backend/eval/labels.jsonl`).
 
 ```bash
 cd backend
@@ -86,10 +86,10 @@ cd backend
 .venv/bin/python scripts/label.py show <ASIN>                      # label them (test links are shown blind)
 ```
 
-| | Fresh test set (64 store checks) | Pair precision | Reviewer's 20 (40) | Tuning set (210) |
+| | Fresh test set (64 store checks) | Pair precision there | Reviewer's 20 (40) | Tuning set (280) |
 |---|---|---|---|---|
-| Old matcher (v1) | 48 | 58% | 37 | 182 |
-| New matcher (v2, default) | 53 | 79% | 37 | 197 |
+| Old matcher (v1) | 48 | 60% | 37 | 232 |
+| New matcher (v2, default) | 52 | 77% | 37 | 260 |
 
 ## API
 
@@ -129,7 +129,7 @@ backend/app/
     amazon.py      product page → structured Listing
     flipkart.py    search results + product page (stock status, colour, model code)
     croma.py       Croma's public search API (JSON)
-    myntra.py      Myntra search page (embedded JSON)
+    myntra.py      Myntra search page + product page (specs, colourway links)
 frontend/src/app/
   page.tsx         the UI
   how-it-works/    renders docs/HOW_MATCHING_WORKS.md
@@ -159,8 +159,8 @@ frontend/src/app/
 - Datacenter IPs (cloud hosting) are more likely to be blocked by these sites than a home connection.
 - Apparel without a style code is the weakest area: two plain polos of one brand and colour look the same on
   paper. When nothing distinctive agrees, it's reported as Not listed rather than guessed.
-- The app opens at most 8 product pages per search to read colours and codes, so with many colourways of one
-  shoe the right one can go unread.
+- The app opens at most 8 product pages per search to read colours and codes. On Myntra it also follows a
+  product's own colourway links to the right colour; on Flipkart, colourways only appear as separate search results.
 - Recall is bounded by each store's own search. Some listings (mostly sold-out ones) never appear in search
   results however the query is phrased; on the reviewer's 20 links, five products miss a listing for this reason.
 - Stock is checked without a pincode ("being sold"), not delivery to a specific address.

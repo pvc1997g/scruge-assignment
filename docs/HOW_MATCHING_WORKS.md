@@ -78,11 +78,15 @@ One comparison routine for every category; the category only picks a short table
    distinctive in common score low and come back Not listed rather than as a guess.
 
 ### 4. Pick the winner and check stock
+**Wrong colour, right model?** A Myntra product page lists the product's other colourways. When a listing is the
+right model in the wrong colour, we open the colourway whose colour fits Amazon's and judge it like any listing
+(the off-white *Court Vision Alta* is found this way).
+
 Phones are listed once per colour, so several listings can pass every check. For phones we pick, in order:
 **the same colour name** as Amazon ("Vivid Mint"), then **the same base colour** ("Onyx Black" ≈ "Black"), and
 only as a last resort another colour, shown with a visible "different colour" note. If the exact colour is sold
-out, we say so and mention the colours that are in stock. For everything else, the highest score wins, and ties go
-to the one you can actually buy. Stock comes from the platform itself:
+out, we say so and mention the colours that are in stock. For shoes and clothes the exact colour wins first (off-white beats white when Amazon says off-white), then the
+highest score, and ties go to the one you can actually buy. Stock comes from the platform itself:
 - **Flipkart:** the product page's own `availabilityStatus` (`IN_STOCK` / `OUT_OF_STOCK`).
 - **Croma:** the list of stores holding stock, from Croma's search API (empty → out of stock).
 - **Myntra:** whether any size is available.
@@ -94,13 +98,13 @@ the API's `reasons` field and printed by `scripts/try_link.py`, which makes the 
 
 ### 6. How we know it works
 The matcher was rewritten after a review found it had been tuned link by link. The rewrite was measured on saved
-snapshots of what the stores returned (so both versions see identical input), against 9,163 hand-checked
+snapshots of what the stores returned (so both versions see identical input), against 12,396 hand-checked
 listing pairs, with a test set chosen and labelled before the final changes (`docs/REWRITE_PLAN.md`):
 
-| | Fresh test set (64 store checks) | Pair precision there | Reviewer's 20 links (40) | Tuning set (210) |
+| | Fresh test set (64 store checks) | Pair precision there | Reviewer's 20 links (40) | Tuning set (280) |
 |---|---|---|---|---|
-| Old matcher | 48 | 58% | 37 | 182 |
-| New matcher | 53 | 79% | 37 | 197 |
+| Old matcher | 48 | 60% | 37 | 232 |
+| New matcher | 52 | 77% | 37 | 260 |
 
 Run it yourself: `scripts/evaluate.py --set test2 --matcher v2` (and `--matcher v1` for the old one).
 
@@ -108,8 +112,10 @@ Run it yourself: `scripts/evaluate.py --set test2 --matcher v2` (and `--matcher 
 - No paid APIs or LLMs: everything is rules plus the platforms' own public pages and data.
 - If a platform changes its page layout, its adapter needs updating. Each platform lives in its own small file
   (`backend/app/sources/*.py`).
-- The app opens a limited number of product pages per search (to read colours and codes), so on a store with many
-  colourways of one shoe the right colour can go unread.
+- The app opens a limited number of product pages per search (to read colours and codes), so on Flipkart, with many
+  colourways of one shoe, the right colour can go unread.
+- Plain clothes are the weakest area, and more examples don't fix it: the listings themselves often carry nothing
+  that tells two plain polos apart (no code, no distinctive name). Those come back Not listed rather than guessed.
 - Plain garments without a style code can't be told apart reliably (two plain black polos from one brand look the
   same on paper). Rather than guess, those are reported as Not listed.
 - We can only judge what a store's search shows us. Some listings, mostly sold-out ones, never appear in the

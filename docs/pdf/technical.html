@@ -146,8 +146,8 @@
   </table>
 
   <div class="grid3" style="margin: 6mm 0 2mm;">
-    <div><div class="bignum">0</div><div>paid APIs, API keys or language models. Every decision is a rule you can read.</div></div>
-    <div><div class="bignum">3 gates</div><div>a listing must pass to count: brand, model, and the category's key attribute.</div></div>
+    <div><div class="bignum">0</div><div>paid APIs, API keys or language models. Every decision can be traced to a stated reason.</div></div>
+    <div><div class="bignum">52 / 64</div><div>store checks right on a test set the matcher never saw (old matcher: 48).</div></div>
     <div><div class="bignum">~4 s</div><div>typical end-to-end time for a phone, with every store searched in parallel.</div></div>
   </div>
 
@@ -156,7 +156,7 @@
     <div><span>2</span><b>The request, step by step<em>A real lookup traced from the browser to the answer</em></b></div>
     <div><span>3</span><b>Reading the Amazon page<em>From marketing title to structured facts</em></b></div>
     <div><span>4</span><b>Searching the stores<em>Queries and one adapter per platform</em></b></div>
-    <div><span>5</span><b>The matching engine<em>Hard gates, category rules and scoring</em></b></div>
+    <div><span>5</span><b>The matching engine<em>Identifiers, hard rules and a learned score</em></b></div>
     <div><span>6</span><b>Choosing the winner and the stock verdict</b></div>
     <div><span>7</span><b>Engineering decisions<em>What was chosen, what was traded away</em></b></div>
     <div><span>8</span><b>Evaluation, limits and next steps</b></div>
@@ -192,7 +192,7 @@
         <rect x="350" y="80" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="99" text-anchor="middle">service.py: orchestrate</text>
         <rect x="350" y="118" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="137" text-anchor="middle">sources/*: 4 adapters</text>
         <rect x="350" y="156" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="175" text-anchor="middle">normalize.py: facts</text>
-        <rect x="350" y="194" width="120" height="30" rx="5" fill="#e8a33d"/><text x="410" y="213" text-anchor="middle" fill="#12261f" font-weight="600">matcher.py: gates</text>
+        <rect x="350" y="194" width="120" height="30" rx="5" fill="#e8a33d"/><text x="410" y="213" text-anchor="middle" fill="#12261f" font-weight="600">match2/: matcher</text>
         <rect x="350" y="232" width="120" height="30" rx="5" fill="#1f3d33"/><text x="410" y="251" text-anchor="middle">http.py + 15 min cache</text>
       </g>
       <!-- stores -->
@@ -226,7 +226,7 @@
     <tr><td><code>app/sources/amazon.py</code></td><td>Resolve the product ID (ASIN), read the product page into a structured <code>Listing</code>.</td></tr>
     <tr><td><code>app/sources/flipkart.py</code><br><code>croma.py</code>, <code>myntra.py</code></td><td>One adapter per store with the same two functions: <code>search(query)</code> and <code>enrich(listing)</code>.</td></tr>
     <tr><td><code>app/normalize.py</code></td><td>Text to facts: RAM, storage, screen size, colour families, model tokens, TV model codes, garment facts.</td></tr>
-    <tr><td><code>app/matcher.py</code></td><td>The rules. Returns a verdict with a score and human-readable reasons.</td></tr>
+    <tr><td><code>app/match2/</code></td><td>The matcher: facts, per-category schema, engine, learned weights. Returns a verdict with a score and human-readable reasons. (<code>app/matcher.py</code> is the old one, kept for comparison.)</td></tr>
     <tr><td><code>app/http.py</code></td><td>Shared client with a real Chrome TLS fingerprint, per-store cookie sessions, retries.</td></tr>
   </table>
 </section>
@@ -285,8 +285,8 @@
   </div></div>
 
   <div class="step"><div class="n">5</div><div>
-    <h3>Every result goes through the gates</h3>
-    <p>Flipkart returned 24 listings and Croma 6. Each one is checked against the Amazon facts; anything that fails a single gate is dropped with a reason (figure 4 shows Croma's six).</p>
+    <h3>Every result is judged</h3>
+    <p>Flipkart returned 24 listings and Croma 6. Each one is turned into facts and compared with Amazon's: hard rules first (anything that breaks one is dropped with a reason, figure 4 shows Croma's six), then a learned score for the rest.</p>
   </div></div>
 
   <div class="step"><div class="n">6</div><div>
@@ -369,8 +369,8 @@
 <!-- ============================================================ 5 MATCHING -->
 <section>
   <div class="section-no">5 &nbsp;The matching engine</div>
-  <h2>Three gates, then a score</h2>
-  <p>A listing counts as the same product only if it passes <strong>every</strong> gate. Scores are computed only for listings that already passed, and only to rank them. "Almost the same" never becomes a match.</p>
+  <h2>Identifiers, hard rules, then a learned score</h2>
+  <p>The matcher (<code>backend/app/match2</code>) is the second version. The first was a chain of hand-written checks that grew with every failing link; the rewrite replaces it with four general steps, described by one table per category instead of branches in code. A wrong match is worse than a miss, so anything uncertain becomes "not listed".</p>
 
   <figure>
     <svg viewBox="0 0 640 250" width="100%">
@@ -380,55 +380,47 @@
         <rect x="0" y="56" width="640" height="38" rx="5" fill="#e1efe8"/>
         <text x="12" y="80" font-weight="700">Brand: 6 pass</text><text x="628" y="80" text-anchor="end" fill="#5a6a64">all OnePlus</text>
         <rect x="0" y="102" width="640" height="38" rx="5" fill="#cfe5da"/>
-        <text x="12" y="126" font-weight="700">Model: 6 pass</text><text x="628" y="126" text-anchor="end" fill="#5a6a64">distinguishing tokens {ce6, lite} identical</text>
+        <text x="12" y="126" font-weight="700">Versions: 6 pass</text><text x="628" y="126" text-anchor="end" fill="#5a6a64">{ce6, lite} on both sides, no rare name word missing</text>
         <rect x="0" y="148" width="430" height="38" rx="5" fill="#1e6b52"/>
-        <text x="12" y="172" font-weight="700" fill="#fff">RAM + storage: 2 pass</text>
+        <text x="12" y="172" font-weight="700" fill="#fff">RAM + storage (hard rule): 2 pass</text>
         <text x="440" y="164" font-size="9" fill="#a8321f">✕ 6GB RAM, 128GB (×2): RAM differs</text>
         <text x="440" y="178" font-size="9" fill="#a8321f">✕ 8GB RAM, 256GB (×2): storage differs</text>
         <rect x="0" y="194" width="215" height="38" rx="5" fill="#12261f"/>
         <text x="12" y="218" font-weight="700" fill="#fff">Colour tier: 1 wins</text>
-        <text x="225" y="210" font-size="9" fill="#12261f">✓ Vivid Mint: exact colour (tier 2), 7 stores hold stock</text>
-        <text x="225" y="224" font-size="9" fill="#5a6a64">· Hyper Black: passes every gate but different colour (tier 0)</text>
+        <text x="225" y="210" font-size="9" fill="#12261f">✓ Vivid Mint: exact colour, 7 stores hold stock</text>
+        <text x="225" y="224" font-size="9" fill="#5a6a64">· Hyper Black: same phone, different colour</text>
       </g>
     </svg>
-    <figcaption>Figure 4. The real Croma funnel for this lookup. Note that the Hyper Black version had far more stock (123 locations) but loses on colour: the same colour beats availability.</figcaption>
+    <figcaption>Figure 4. The real Croma funnel for this lookup. The Hyper Black version had far more stock (123 locations) but loses on colour: the same colour beats availability.</figcaption>
   </figure>
 
-  <h3>Gate 1: brand</h3>
-  <p>Normalised brands must be equal, or one must start with the other (samsung / samsungindia), using the alias table. If a store omits the brand, the first word of its title is tried.</p>
+  <h3>1. Facts</h3>
+  <p>Every listing, Amazon's included, becomes the same record: brand, the model's own name words, <strong>version words</strong> (anything with a digit, plus words such as Pro, Plus, Ultra, Lite, Mid, Slip-ins), manufacturer codes, and the category's attributes (RAM, storage and network; screen size; wearer, pack size, colour and the brand's shade name; garment, sleeve, neck, fit, pattern). Store conventions are handled here, once: "Pro+" means Pro Plus, Flipkart's escaped slashes, Croma writing "5G" on every 5G phone.</p>
 
-  <h3>Gate 2: model, with a different rule per category</h3>
-  <div class="grid2">
-    <div class="card"><h4>Smartphones</h4><p class="small">Marketing words and spec figures are stripped. The <strong>distinguishing tokens</strong> (anything with a digit, or a variant word such as Pro, Ultra, Plus, Lite, FE) must be <strong>identical sets</strong>, and every series word must be present (POP X ≠ POVA X), except umbrella words stores drop ("Samsung M36" is the Galaxy M36). <strong>5G and 4G are different phones</strong>: a listing stating the other network is rejected, and one stating the same network ranks first.</p>
-    <p class="small mono" style="color:#a8321f">Galaxy S24 vs Galaxy S22 → missing [s24], extra [s22]</p></div>
-    <div class="card"><h4>Televisions</h4><p class="small">The manufacturer <strong>model code</strong> decides, read from Flipkart's product page or Croma's search summary. An exact code scores 1.0. A revision suffix is a different set (K-55S25B ≠ K-55S25BM2); a one-letter regional variant (K-55S25EM2) or a series code (Croma's "NU870B" for "43NU870BPLA") is accepted at lower confidence.</p>
-    <p class="small mono" style="color:#1e6b52">43NU870BPLA vs NU870B → series match</p></div>
-    <div class="card"><h4>Sneakers</h4><p class="small">A matching style code (e.g. <code>177288-MVE</code>) is an instant match. Otherwise <strong>every Amazon model word</strong> must be on the listing: title, Flipkart's model name or Myntra's collection name ("Nike Women Leather Sneakers" is a Court Vision Alta). Descriptive extras pass (Leather, Road); an extra name word is a sub-model (Malden Street). Version words must agree; low top is the default.</p>
-    <p class="small mono" style="color:#a8321f">Chuck Taylor All Star vs … Malden Street → extra name</p></div>
-    <div class="card"><h4>T-shirts, polos, jerseys</h4><p class="small">First, the <strong>style code</strong>; jerseys sold as plain T-shirts are found this way (IU1397 is the Manchester United home kit). Jerseys without one need team, season and kit to agree. Other garments: pattern, fit, sleeve, neck and material must not differ, two strong facts must agree, a named line (Essential, 025) must appear on the listing or its description, and extra design details or multi-packs reject.</p>
-    <p class="small mono" style="color:#a8321f">Full-sleeve polo vs half-sleeve polo → sleeve differs</p></div>
-  </div>
+  <h3>2. Identifiers first</h3>
+  <p>If both sides carry a manufacturer code, the code decides. A TV model code (exact, a one-letter regional variant, or Croma's series code; a revision suffix like K-55S25B vs K-55S25BM2 is a different set) or a shoe/garment style code (<code>177288-MVE</code>; IU1397 is the Manchester United home kit even when sold as a plain T-shirt). A conflicting code rejects outright.</p>
 
-  <h3>Gate 3: the category's key attribute</h3>
+  <h3>3. Hard rules, from one table per category</h3>
   <ul>
-    <li><strong>Phones:</strong> storage must be equal. RAM must be equal whenever both sides state it; Apple never publishes RAM, so model plus storage decide there.</li>
-    <li><strong>TVs:</strong> screen size within ±1 inch, which absorbs 138 cm vs 139.7 cm rounding.</li>
-    <li><strong>Sneakers and apparel:</strong> the store repeating the brand's colour name ("DESERT KHAKI/DARK HAZEL-SAIL") settles it; otherwise the base colour must match, exactly or within a family. The wearer must be compatible.</li>
+    <li><strong>Phones:</strong> equal storage, equal RAM when both state it (Apple never does), same network (the REDMI A7 Pro 5G is not the 4G A7 Pro), and identical version words (Galaxy S24 vs S24 Ultra).</li>
+    <li><strong>TVs:</strong> screen within ±1 inch, which absorbs 138 cm vs 139.7 cm rounding.</li>
+    <li><strong>Shoes and clothes:</strong> same brand, compatible wearer, same pack size, compatible colour; when both sides give a brand shade name ("WOLF GREY", "MAUVE"/"MVE") it must agree. No version word may conflict (574 vs 574 Legacy; low top is the default).</li>
   </ul>
 
-  <h3>Scoring</h3>
-  <p>For listings that pass, <code>score = 0.5 + 0.5 × similarity</code>, where similarity comes from the model check (1.0 for an exact code or identical tokens). An exact colour adds 0.1 over a family colour for fashion. For apparel, a <strong>style-code match</strong> scores 1.0 and a match on distinctive details is capped at <strong>0.8</strong>. A garment that agrees only on default facts (solid, short sleeve, round neck, which describes most plain tees) is <strong>rejected</strong>: only definite matches are shown. The score only ranks candidates; it is never shown to the user as a "maybe".</p>
+  <h3>4. A learned score for what's left</h3>
+  <p>Name evidence is weighted by <strong>rarity</strong>: how many distinct products in the store data use a word. A shared rare word ("Malden", "teamLIGA", "025") is strong evidence; a common one ("Galaxy", "Running") barely counts, and a rare word on only one side counts against. These features feed a small <strong>logistic regression per category</strong>, fitted on 12,396 hand-labelled listing pairs in plain Python (no libraries, no model files beyond a JSON of weights). Each category's acceptance threshold is chosen by cross-validation to favour precision. The score only ranks and accepts; it is never shown as a "maybe".</p>
+  <p class="small">Rebuild: <code>scripts/build_background.py</code> (word rarity, from tuning-set pools only) and <code>scripts/train_v2.py</code> (weights and thresholds). <code>SCRUGE_MATCHER=v1</code> switches back to the old matcher for comparison.</p>
 </section>
 
 <!-- ============================================================ 6 WINNER + STOCK -->
 <section>
   <div class="section-no">6 &nbsp;Choosing the winner and the stock verdict</div>
   <h2>Same colour first, then the store's own word on stock</h2>
-  <p>Phones are listed once per colour (and sometimes once per seller), so several listings often pass every gate. The assignment only requires RAM and storage to match, but a different colour is not what the user asked for, so the winner is chosen by an ordered key:</p>
+  <p>Phones are listed once per colour (and sometimes once per seller), so several listings often pass every check. The assignment only requires RAM and storage to match, but a different colour is not what the user asked for, so the winner is chosen by an ordered key:</p>
 <pre><span class="c"># service.py (simplified)</span>
 <span class="k">def</span> rank(match):
     score, listing, _ = match
-    tier = colour_tier(source, listing)   <span class="c"># 2 exact name · 1 same base colour · 0 other</span>
+    tier = colour_tier(source, listing)   <span class="c"># exact name, then same shade (off-white beats white), then base colour</span>
     <span class="k">return</span> (tier, round(score, 2), listing.available <span class="k">is not</span> False, listing.available <span class="k">is</span> True)
 
 best = max(matches, key=rank)</pre>
@@ -447,12 +439,14 @@ best = max(matches, key=rank)</pre>
   <h3>The three outcomes</h3>
   <table>
     <tr><th style="width:22%">Status</th><th style="width:40%">When</th><th>Shown as</th></tr>
-    <tr><td><span class="pill t-in"><span class="dot d-in"></span>In stock</span></td><td>A listing passed every gate and the store says it can be bought.</td><td>Solid green mark, "Buy" button, price and difference from Amazon.</td></tr>
-    <tr><td><span class="pill t-out"><span class="dot d-out"></span>Out of stock</span></td><td>A listing passed every gate but the store says it can't be bought right now.</td><td>Half-filled amber mark, "View" button.</td></tr>
-    <tr><td><span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span></td><td>No listing passed every gate, or the store couldn't be reached even after a retry.</td><td>Hollow ring and how many listings were checked; an unreachable store adds a "didn't respond, try again" note.</td></tr>
+    <tr><td><span class="pill t-in"><span class="dot d-in"></span>In stock</span></td><td>A listing was accepted and the store says it can be bought.</td><td>Solid green mark, "Buy" button, price and difference from Amazon.</td></tr>
+    <tr><td><span class="pill t-out"><span class="dot d-out"></span>Out of stock</span></td><td>A listing was accepted but the store says it can't be bought right now.</td><td>Half-filled amber mark, "View" button.</td></tr>
+    <tr><td><span class="pill t-nl"><span class="dot d-nl"></span>Not listed</span></td><td>No listing was accepted, or the store couldn't be reached even after a retry.</td><td>Hollow ring and how many listings were checked; an unreachable store adds a "didn't respond, try again" note.</td></tr>
   </table>
 
-  <div class="callout"><p><strong>Every verdict is explainable.</strong> Each result carries a <code>reasons</code> list (in the API and <code>scripts/try_link.py</code>): the query used and each check that passed, or, for "not listed", the closest rejected listings with the gate they failed ("Redmi Note 17 Pro → different model (missing 14, extra 17)"). The website stays simple; this is what let me find almost every bug in this project in seconds.</p></div>
+  <p><strong>Right model, wrong colour.</strong> A Myntra product page lists the product's other colourways. When a listing is the right model in the wrong colour, the app opens the colourway whose colour fits Amazon's and judges it like any listing; this is how the off-white Court Vision Alta is found. Flipkart doesn't expose colourways to a plain request, so there they only appear as separate search results.</p>
+
+  <div class="callout"><p><strong>Every verdict is explainable.</strong> Each result carries a <code>reasons</code> list (in the API and <code>scripts/try_link.py</code>): the query used and each check that passed, or, for "not listed", the closest rejected listings with the rule they broke ("Redmi Note 17 Pro → different model (missing 14, extra 17)"). The website stays simple; this is what let me find almost every bug in this project in seconds.</p></div>
 </section>
 
 <!-- ============================================================ 7 DECISIONS -->
@@ -462,8 +456,9 @@ best = max(matches, key=rank)</pre>
 
   <table>
     <tr><th style="width:24%">Decision</th><th style="width:38%">Why</th><th>Cost</th></tr>
-    <tr><td>Rules, not a language model</td><td>Deterministic, free, fast and fully explainable. Product identity is mostly about exact tokens (S24 vs S24 Ultra), which rules handle better than fuzzy similarity.</td><td>Hand-written rules need maintenance; apparel without model names is inherently fuzzy.</td></tr>
-    <tr><td>Hard gates before scoring</td><td>A wrong match ("buy this", but it is the 6 GB model) is worse than a miss. Precision over recall.</td><td>Some true matches with messy listings are reported as not listed.</td></tr>
+    <tr><td>No language model, no API keys</td><td>Deterministic, free, fast and explainable. Product identity is mostly about exact tokens (S24 vs S24 Ultra), which a small model over hand-picked features handles well.</td><td>Apparel without codes or distinctive names stays hard.</td></tr>
+    <tr><td>Rewrite the rule chain as a measured model</td><td>The first matcher grew one rule per failing link. The rewrite has general steps and learned weights, judged on unseen links.</td><td>Hand-labelling 12,396 pairs; the model is only as good as the labels.</td></tr>
+    <tr><td>Hard rules before scoring</td><td>A wrong match ("buy this", but it is the 6 GB model) is worse than a miss. Precision over recall.</td><td>Some true matches with messy listings are reported as not listed.</td></tr>
     <tr><td>Facts before text</td><td>Comparing normalised RAM, size, colour and codes is robust to every store's writing style.</td><td>Each new attribute needs a parser and tests.</td></tr>
     <tr><td>Parallel stores, sequential queries</td><td>Total time ≈ slowest store. Queries stop at the first that yields a match, keeping request volume low.</td><td>A threaded design; an async client would scale further.</td></tr>
     <tr><td>Product pages only when needed</td><td>Flipkart cards lack colour and TV codes; opening at most 8 pre-filtered pages per query bounds cost.</td><td>A true match ranked beyond the shortlist can be missed.</td></tr>
@@ -480,38 +475,31 @@ best = max(matches, key=rank)</pre>
     <li>Input is validated: only Amazon hosts are accepted, and only a product ID is ever used to build a request.</li>
     <li>No secrets exist in the system at all, because it uses no keys.</li>
   </ul>
-  <div class="callout" style="margin-top:6mm"><p><strong>Run it:</strong> <code>docker compose up --build</code>, then open <code>http://localhost:3005</code>. Source, README and the plain-language explainer are in the repository.</p></div>
+  <div class="callout" style="margin-top:3mm"><p><strong>Run it:</strong> <code>docker compose up --build</code>, then open <code>http://localhost:3005</code>.</p></div>
 </section>
 
 <!-- ============================================================ 8 EVALUATION -->
 <section>
   <div class="section-no">8 &nbsp;Evaluation, limits and next steps</div>
-  <h2>Tested on real links</h2>
-  <p>A fixed set of 41 real Amazon links (<code>backend/scripts/test_links.txt</code>) is run end to end after every change, 82 store checks in all. It includes deliberately awkward cases: a page without breadcrumbs, a phone title that mentions a charger, adidas colour codes, a fancy colour name ("Gibraltar Sea"), a women's tee with a one-word title, a licensed jersey and an unbranded knock-off. Every result was reviewed by hand; stock states change daily.</p>
+  <h2>Measured on saved snapshots, judged on unseen links</h2>
+  <p>Store results change by the minute, so live runs can't compare two matchers fairly. Instead, everything each store returned for 190 Amazon links is saved (<code>backend/eval/pools/</code>) and replayed through the real service, so both matchers see identical input. 12,396 listing pairs are hand-labelled same / different / unsure (<code>eval/labels.jsonl</code>). Links are split: a <strong>tuning set</strong> used for fixes and training, a <strong>fresh test set</strong> labelled blind and never tuned on, and the reviewer's 20 links. A store check counts as right if the app picks a labelled match, or says "not listed" when none exists.</p>
 
   <table class="dense">
-    <tr><th style="width:24%">Category</th><th style="width:12%">Links</th><th style="width:34%">Same product found</th><th>Not listed (each reviewed)</th></tr>
-    <tr><td>Smartphones</td><td>10</td><td>14 of 20 checks</td><td>6, e.g. Croma only had the S22 and S26, not the S24</td></tr>
-    <tr><td>Televisions</td><td>7</td><td>7 of 14</td><td>8, e.g. Flipkart sells Acer's Ultra I series, not the Ultra V</td></tr>
-    <tr><td>Sneakers</td><td>7</td><td>10 of 14</td><td>4, e.g. stores now stock Nike Revolution 8, not 7</td></tr>
-    <tr><td>T-shirts, polos, jerseys</td><td>17</td><td>17 of 34: 7 by style code, 10 by details</td><td>20, e.g. plain polos that agree only on basics</td></tr>
+    <tr><th style="width:24%"></th><th>Fresh test set (64 checks)</th><th>Precision of accepted pairs there</th><th>Reviewer's 20 (40)</th><th>Tuning set (280)</th></tr>
+    <tr><td>Old matcher</td><td>48</td><td>60%</td><td>37</td><td>232</td></tr>
+    <tr><td><strong>New matcher</strong></td><td><strong>52</strong></td><td><strong>77%</strong></td><td>37</td><td>260</td></tr>
   </table>
+  <p class="small">The headline is the fresh test set: links the new matcher was never tuned on. Run with <code>scripts/evaluate.py --set test2 --matcher v2</code>. The full history, including the rounds that didn't help, is in <code>docs/REWRITE_PLAN.md</code>.</p>
 
-  <h3>The reviewer's 20 links: from 6 to 15 fully right</h3>
-  <table class="dense">
-    <tr><th style="width:17%">Category</th><th style="width:11%">Before</th><th style="width:11%">Now</th><th>What changed / what remains</th></tr>
-    <tr><td>Smartphones</td><td>3 / 5</td><td>5 / 5</td><td>"Galaxy" optional (Flipkart's "Samsung M36"); 5G vs 4G (REDMI A7 Pro 5G); Amazon holding page retried.</td></tr>
-    <tr><td>Televisions</td><td>2 / 5</td><td>5 / 5</td><td>Croma's summary carries the code; revision suffixes reject (K-55S25B); codes searched as written ("L32MB-FIN").</td></tr>
-    <tr><td>Sneakers</td><td>1 / 5</td><td>3 / 5</td><td>Extra descriptive words, low-top default, model-name and collection fields, brand colour names. Revolution 8 (both stores) never appears in store search.</td></tr>
-    <tr><td>T-shirts, polos, jerseys</td><td>0 / 5</td><td>2 / 5</td><td>Jerseys sold as T-shirts found by style code; Myntra descriptions confirm lines; packs rejected. teamLIGA and two Myntra listings never appear in search.</td></tr>
-  </table>
+  <h3>The reviewer's 20 links, run live</h3>
+  <p>Of the 40 store results, 31 are correct, one is debatable (a Sony 55" where the store's model code differs from the reviewer's by a regional letter), and 7 are misses. Six of those misses are products the store's own search never shows (Revolution 8, teamLIGA, two Myntra listings); the seventh is a Levi's tee on Myntra with no code and only generic words. An off-white Court Vision Alta that was wrong is now found through Myntra's colourway links.</p>
 
-  <div class="grid2" style="margin-top: 4mm;">
+<div class="grid2" style="margin-top: 4mm;">
     <div>
       <h3 style="margin-top:0">Known limits</h3>
       <ul>
         <li>Scrapers depend on page structure; a redesign means updating one adapter file.</li>
-        <li>Plain garments without a style code can't be told apart reliably; rather than guess, they are reported as not listed.</li>
+        <li>Plain garments without a style code can't be told apart reliably, and 35 more labelled clothing links didn't change that: the listings themselves carry no distinguishing evidence. Rather than guess, they are reported as not listed.</li>
         <li>Stock is checked without a pincode: "the store is selling it", not "it can reach you".</li>
         <li>Recall is bounded by each store's own search: what it doesn't surface, we can't see.</li>
       </ul>
@@ -519,11 +507,11 @@ best = max(matches, key=rank)</pre>
     <div>
       <h3 style="margin-top:0">With more time</h3>
       <ul>
-        <li><strong>Labelled evaluation set</strong> with precision and recall per category, run in CI.</li>
+        <li><strong>Photo comparison</strong> for plain clothes: a pilot showed gallery images carry some signal where text has none.</li>
+        <li><strong>The replay evaluation in CI</strong>, failing a change that lowers fresh-test accuracy.</li>
         <li><strong>Adapter health monitoring</strong>: alert when a store's parse rate drops, before users notice.</li>
         <li><strong>Async client and Redis cache</strong> for concurrency and shared, persistent results.</li>
-        <li><strong>A model as a tie-breaker only</strong> for low-confidence apparel, behind the same hard gates.</li>
-        <li><strong>Pincode-aware stock</strong> and price history.</li>
+                <li><strong>Pincode-aware stock</strong> and price history.</li>
       </ul>
     </div>
   </div>
